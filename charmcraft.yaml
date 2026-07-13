@@ -1,0 +1,23 @@
+# This file configures Charmcraft.
+# See https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/
+type: charm
+name: ubuntu-changelogs-operator
+title: Ubuntu Changelogs Operator
+summary: The operator charm behind https://changelogs.ubuntu.com/
+description: |
+  Sets up a web server to serve Ubuntu meta-relase information and package changelogs.
+
+base: ubuntu@26.04
+platforms:
+  amd64:
+  arm64:
+
+assumes:
+  - juju >= 3.6
+
+parts:
+  charm:
+    plugin: uv
+    source: .
+    build-snaps:
+      - astral-uv
