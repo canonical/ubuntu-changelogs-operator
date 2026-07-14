@@ -7,6 +7,10 @@ summary: The operator charm behind https://changelogs.ubuntu.com/
 description: |
   Sets up a web server to serve Ubuntu meta-relase information and package changelogs.
 
+links:
+  source: https://github.com/ubuntu/ubuntu-changelogs-operator
+  issues: https://github.com/ubuntu/ubuntu-changelogs-operator/issues
+
 base: ubuntu@26.04
 platforms:
   amd64:
@@ -21,3 +25,8 @@ parts:
     source: .
     build-snaps:
       - astral-uv
+  files:
+    plugin: dump
+    source: files
+    organize:
+      "*": files/

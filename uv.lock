@@ -7,6 +7,18 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "charmlibs-apt"
+version = "1.0.0.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/77/79/2dfe3a6931c06081492de8ff97043a337339896401e910f46d4613d0a7d0/charmlibs_apt-1.0.0.post1.tar.gz", hash = "sha256:d332959b633f9aa1a3b7c5ec274ff2ef7a5d4482de4ce4d96c36e1dd1b97625d", size = 32034, upload-time = "2026-06-16T05:39:50.799Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/e9/da1c8b57de65484ae47b0808ce5c0b2fcf947ebbcdf7abccd2f898411e97/charmlibs_apt-1.0.0.post1-py3-none-any.whl", hash = "sha256:5682758b9de1273d59e7a94f8e861d57ccd4360c510d598610a69b758e5076d1", size = 19282, upload-time = "2026-06-16T05:39:49.474Z" },
+]
+
+[[package]]
 name = "codespell"
 version = "2.4.2"
 source = { registry = "https://pypi.org/simple" }
@@ -143,6 +155,7 @@ name = "ubuntu-changelogs-operator"
 version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
+    { name = "charmlibs-apt" },
     { name = "ops" },
 ]
 
@@ -164,7 +177,10 @@ unit = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ops", specifier = "~=3.7" }]
+requires-dist = [
+    { name = "charmlibs-apt", specifier = ">=1.0.0.post1" },
+    { name = "ops", specifier = "~=3.7" },
+]
 
 [package.metadata.requires-dev]
 integration = [
