@@ -8,11 +8,18 @@ import logging
 import time
 
 import ops
+import pydantic
 
 from meta_release import MetaRelease
 from nginx import Nginx
 
 logger = logging.getLogger(__name__)
+
+
+class CharmConfig(pydantic.BaseModel):
+    """Charm configuration options."""
+
+    meta_release_ref: str
 
 
 class UbuntuChangelogsOperatorCharm(ops.CharmBase):
@@ -56,9 +63,17 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
 
     def _on_config_changed(self, event: ops.ConfigChangedEvent):
         self.unit.status = ops.MaintenanceStatus("rolling out configuration")
+
+        try:
+            config = self.load_config(CharmConfig)
+        except pydantic.ValidationError:
+            logger.exception("Error while parsing configuration")
+            self.unit.status = ops.BlockedStatus("failed parsing configuration")
+            raise
+
         try:
             self.nginx.setup()
-            self.meta_release.pull_updates()
+            self.meta_release.pull_updates(config.meta_release_ref)
         except Exception:
             logger.exception("Error while rolling out configuration")
             self.unit.status = ops.BlockedStatus("failed rolling out configuration")

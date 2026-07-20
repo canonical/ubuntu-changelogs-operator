@@ -30,3 +30,11 @@ parts:
     source: files
     organize:
       "*": files/
+
+config:
+  options:
+    meta_release_ref:
+      type: string
+      default: main
+      description: |
+        The git ref from which to pull the meta-release information.
