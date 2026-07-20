@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 CHARM_DIR = Path(__file__).parent.parent
 NGINX_CONFIG = CHARM_DIR / "files" / "nginx.conf"
+ROBOTS_TXT = CHARM_DIR / "files" / "robots.txt"
 DEFAULT_CONFIG = Path("/etc/nginx/sites-enabled/default")
 CUSTOM_CONFIG = Path("/etc/nginx/sites-enabled/index.conf")
 SERVING_DIR = Path("/var/www/changelogs.ubuntu.com")
@@ -30,6 +31,12 @@ def install() -> None:
     SERVING_DIR.mkdir(parents=True, exist_ok=True)
 
     logger.info("nginx installed and configured")
+
+
+def setup() -> None:
+    """Copy static files into the serving directory."""
+    shutil.copy2(ROBOTS_TXT, SERVING_DIR / "robots.txt")
+    logger.info("static files copied to serving directory")
 
 
 def is_running() -> bool:

@@ -56,6 +56,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
     def _on_config_changed(self, event: ops.ConfigChangedEvent):
         self.unit.status = ops.MaintenanceStatus("rolling out configuration")
         try:
+            nginx.setup()
             self.meta_release.pull_updates()
         except Exception:
             logger.exception("Error while rolling out configuration")
