@@ -13,8 +13,8 @@ def test_start(monkeypatch: pytest.MonkeyPatch):
     """Test that the charm has the correct state after handling the start event."""
     # Arrange:
     ctx = testing.Context(UbuntuChangelogsOperatorCharm)
-    monkeypatch.setattr("charm.nginx.start", lambda: None)
-    monkeypatch.setattr("charm.nginx.get_version", lambda: "1.0.0")
+    monkeypatch.setattr("nginx.Nginx.start", lambda self: None)
+    monkeypatch.setattr("nginx.Nginx.get_version", lambda self: "1.0.0")
     # Act:
     state_out = ctx.run(ctx.on.start(), testing.State())
     # Assert:
@@ -25,7 +25,7 @@ def test_start(monkeypatch: pytest.MonkeyPatch):
 def test_install_orchestrates_components(monkeypatch: pytest.MonkeyPatch):
     """Test that install sets up each service component."""
     calls = []
-    monkeypatch.setattr("charm.nginx.install", lambda: calls.append("nginx.install"))
+    monkeypatch.setattr("nginx.Nginx.install", lambda self: calls.append("nginx.install"))
 
     ctx = testing.Context(UbuntuChangelogsOperatorCharm)
     state_out = ctx.run(ctx.on.install(), testing.State())

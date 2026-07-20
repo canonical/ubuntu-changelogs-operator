@@ -9,8 +9,8 @@ import time
 
 import ops
 
-import nginx
 from meta_release import MetaRelease
+from nginx import Nginx
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,8 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
     def __init__(self, framework: ops.Framework):
         super().__init__(framework)
 
-        self.meta_release = MetaRelease(nginx.get_serving_dir())
+        self.nginx = Nginx()
+        self.meta_release = MetaRelease(self.nginx.get_serving_dir())
 
         framework.observe(self.on.install, self._on_install)
         framework.observe(self.on.start, self._on_start)
@@ -33,7 +34,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         """Install the workload on the machine."""
         self.unit.status = ops.MaintenanceStatus("installing ubuntu changelogs operator")
         try:
-            nginx.install()
+            self.nginx.install()
             self.meta_release.install()
         except Exception:
             logger.exception("Error while installing Ubuntu changelogs dependencies")
@@ -48,15 +49,15 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
     def _on_start(self, event: ops.StartEvent):
         """Start the workload."""
         self.unit.status = ops.MaintenanceStatus("starting services")
-        nginx.start()
-        self.unit.set_workload_version(nginx.get_version())
+        self.nginx.start()
+        self.unit.set_workload_version(self.nginx.get_version())
         logger.info("Services started")
         self.unit.status = ops.ActiveStatus()
 
     def _on_config_changed(self, event: ops.ConfigChangedEvent):
         self.unit.status = ops.MaintenanceStatus("rolling out configuration")
         try:
-            nginx.setup()
+            self.nginx.setup()
             self.meta_release.pull_updates()
         except Exception:
             logger.exception("Error while rolling out configuration")
@@ -66,16 +67,16 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
 
     def _on_stop(self, event: ops.StopEvent) -> None:
         """Stop the workload."""
-        nginx.stop()
+        self.nginx.stop()
         for _ in range(3):
-            if not nginx.is_running():
+            if not self.nginx.is_running():
                 return
             time.sleep(1)
         raise RuntimeError("nginx is still running after the expected time")
 
     def _on_remove(self, event: ops.RemoveEvent) -> None:
         """Remove the workload."""
-        nginx.uninstall()
+        self.nginx.uninstall()
 
 
 if __name__ == "__main__":  # pragma: nocover
