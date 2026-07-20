@@ -10,6 +10,7 @@ import time
 import ops
 
 import nginx
+from meta_release import MetaRelease
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,12 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
 
     def __init__(self, framework: ops.Framework):
         super().__init__(framework)
+
+        self.meta_release = MetaRelease(nginx.get_serving_dir())
+
         framework.observe(self.on.install, self._on_install)
         framework.observe(self.on.start, self._on_start)
-        # self.framework.observe(self.on.config_changed, self._on_config_changed):q
+        framework.observe(self.on.config_changed, self._on_config_changed)
         framework.observe(self.on.stop, self._on_stop)
         framework.observe(self.on.remove, self._on_remove)
 
@@ -30,10 +34,11 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         self.unit.status = ops.MaintenanceStatus("installing ubuntu changelogs operator")
         try:
             nginx.install()
-        except Exception as error:
-            logger.error("Error while installing Ubuntu changelogs dependencies")
+            self.meta_release.install()
+        except Exception:
+            logger.exception("Error while installing Ubuntu changelogs dependencies")
             self.unit.status = ops.BlockedStatus(
-                f"failed installing ubuntu changelogs dependencies: {error}"
+                "failed installing ubuntu changelogs dependencies"
             )
             raise
 
@@ -49,9 +54,14 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         self.unit.status = ops.ActiveStatus()
 
     def _on_config_changed(self, event: ops.ConfigChangedEvent):
-        # self.unit.status = ops.MaintenanceStatus("rolling out configuration")
-        # self.unit.status = ops.ActiveStatus("ready")
-        pass
+        self.unit.status = ops.MaintenanceStatus("rolling out configuration")
+        try:
+            self.meta_release.pull_updates()
+        except Exception:
+            logger.exception("Error while rolling out configuration")
+            self.unit.status = ops.BlockedStatus("failed rolling out configuration")
+            raise
+        self.unit.status = ops.ActiveStatus("ready")
 
     def _on_stop(self, event: ops.StopEvent) -> None:
         """Stop the workload."""

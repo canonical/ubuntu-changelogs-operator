@@ -32,12 +32,6 @@ def install() -> None:
     logger.info("nginx installed and configured")
 
 
-def get_version() -> str:
-    """Return the installed nginx version."""
-    result = subprocess.run(["nginx", "-v"], check=True, capture_output=True, text=True)
-    return result.stderr.removeprefix("nginx version: nginx/").strip()
-
-
 def is_running() -> bool:
     """Return whether nginx is running."""
     result = subprocess.run(
@@ -66,6 +60,17 @@ def uninstall() -> None:
     apt.remove_package("nginx-core")
     CUSTOM_CONFIG.unlink(missing_ok=True)
     shutil.rmtree(SERVING_DIR, ignore_errors=True)
+
+
+def get_version() -> str:
+    """Return the installed nginx version."""
+    result = subprocess.run(["nginx", "-v"], check=True, capture_output=True, text=True)
+    return result.stderr.removeprefix("nginx version: nginx/").strip()
+
+
+def get_serving_dir() -> Path:
+    """Return the directory being served."""
+    return SERVING_DIR
 
 
 def _systemctl(action: str) -> None:
