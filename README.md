@@ -15,6 +15,8 @@ directory (`/var/www/changelogs.ubuntu.com`) from Launchpad. The workload logic 
 into standalone modules under `src/`:
 
 - `nginx.py` — install, configure, and manage the nginx service.
+- `meta_release.py` — clone and publish the meta-release repository.
+- `changelogs.py` — extract package changelogs from Launchpad
 
 `charm.py` orchestrates these modules in response to Juju events.
 

@@ -26,11 +26,19 @@ def test_install_orchestrates_components(monkeypatch: pytest.MonkeyPatch):
     """Test that install sets up each service component."""
     calls = []
     monkeypatch.setattr("nginx.Nginx.install", lambda self: calls.append("nginx.install"))
+    monkeypatch.setattr(
+        "meta_release.MetaRelease.install", lambda self: calls.append("meta_release.install")
+    )
+    monkeypatch.setattr(
+        "changelogs.Changelogs.install", lambda self: calls.append("changelogs.install")
+    )
 
     ctx = testing.Context(UbuntuChangelogsOperatorCharm)
     state_out = ctx.run(ctx.on.install(), testing.State())
 
     assert calls == [
         "nginx.install",
+        "meta_release.install",
+        "changelogs.install",
     ]
     assert state_out.unit_status == testing.ActiveStatus("Ready")

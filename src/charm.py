@@ -10,6 +10,7 @@ import time
 import ops
 import pydantic
 
+from changelogs import Changelogs
 from meta_release import MetaRelease
 from nginx import Nginx
 
@@ -30,6 +31,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
 
         self.nginx = Nginx()
         self.meta_release = MetaRelease(self.nginx.get_serving_dir())
+        self.changelogs = Changelogs(self.nginx.get_serving_dir())
 
         framework.observe(self.on.install, self._on_install)
         framework.observe(self.on.start, self._on_start)
@@ -43,6 +45,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         try:
             self.nginx.install()
             self.meta_release.install()
+            self.changelogs.install()
         except Exception:
             logger.exception("Error while installing Ubuntu changelogs dependencies")
             self.unit.status = ops.BlockedStatus(
@@ -74,6 +77,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         try:
             self.nginx.setup()
             self.meta_release.pull_updates(config.meta_release_ref)
+            self.changelogs.extract_changelogs()
         except Exception:
             logger.exception("Error while rolling out configuration")
             self.unit.status = ops.BlockedStatus("failed rolling out configuration")
@@ -92,6 +96,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
     def _on_remove(self, event: ops.RemoveEvent) -> None:
         """Remove the workload."""
         self.nginx.uninstall()
+        self.changelogs.uninstall()
 
 
 if __name__ == "__main__":  # pragma: nocover
