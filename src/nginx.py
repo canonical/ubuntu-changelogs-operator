@@ -1,4 +1,4 @@
-# Copyright 2026 Work
+# Copyright 2026 Canonical
 # See LICENSE file for licensing details.
 
 """Manage the nginx web server used by Ubuntu Changelogs."""

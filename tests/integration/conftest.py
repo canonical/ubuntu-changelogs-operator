@@ -1,4 +1,4 @@
-# Copyright 2026 Work
+# Copyright 2026 Canonical
 # See LICENSE file for licensing details.
 #
 # The integration tests use the Jubilant library and the pytest-jubilant plugin.

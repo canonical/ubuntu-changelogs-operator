@@ -1,4 +1,4 @@
-# Copyright 2026 Work
+# Copyright 2026 Canonical
 # See LICENSE file for licensing details.
 #
 # To learn more about testing, see https://documentation.ubuntu.com/ops/latest/explanation/testing/

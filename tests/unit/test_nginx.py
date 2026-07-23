@@ -1,4 +1,4 @@
-# Copyright 2026 Work
+# Copyright 2026 Canonical
 # See LICENSE file for licensing details.
 
 from unittest.mock import Mock

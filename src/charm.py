@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 Work
+# Copyright 2026 Canonical
 # See LICENSE file for licensing details.
 
 """Charm the Ubuntu Changelogs service."""
