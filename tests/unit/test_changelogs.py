@@ -29,10 +29,16 @@ def test_install_copies_script_and_installs_packages(monkeypatch):
     ]
     cache_dir.mkdir.assert_called_once_with(mode=0o755, parents=True, exist_ok=True)
     state_dir.mkdir.assert_called_once_with(mode=0o700, parents=True, exist_ok=True)
-    assert copy2.called
-    check_call.assert_called_once_with(
-        ["chmod", "a+rwx,g-w,o-w", str(changelogs.SCRIPT_DEST)],
-    )
+    assert copy2.call_args_list == [
+        call(changelogs.SCRIPT_SRC, changelogs.SCRIPT_DEST),
+        call(changelogs.SERVICE_SRC, changelogs.SYSTEMD_DIR / changelogs.SERVICE_SRC.name),
+        call(changelogs.TIMER_SRC, changelogs.SYSTEMD_DIR / changelogs.TIMER_SRC.name),
+    ]
+    assert check_call.call_args_list == [
+        call(["chmod", "a+rwx,g-w,o-w", str(changelogs.SCRIPT_DEST)]),
+        call(["systemctl", "daemon-reload"]),
+        call(["systemctl", "enable", "--now", changelogs.TIMER_UNIT]),
+    ]
 
 
 def test_extract_changelogs_updates_destination_in_place(monkeypatch):
@@ -59,20 +65,36 @@ def test_extract_changelogs_updates_destination_in_place(monkeypatch):
 def test_uninstall_removes_packages_and_script(monkeypatch):
     remove_package = Mock()
     monkeypatch.setattr("changelogs.apt.remove_package", remove_package)
-    unlink = Mock()
-    monkeypatch.setattr("changelogs.Path.unlink", unlink)
+    unlinked = []
+
+    def record_unlink(self, *, missing_ok=False):
+        unlinked.append((self, missing_ok))
+
+    monkeypatch.setattr("changelogs.Path.unlink", record_unlink)
     rmtree = Mock()
     monkeypatch.setattr("changelogs.shutil.rmtree", rmtree)
+    run = Mock()
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+    check_call = Mock()
+    monkeypatch.setattr("changelogs.subprocess.check_call", check_call)
 
     changelogs = Changelogs(Mock())
     changelogs.uninstall()
 
+    run.assert_called_once_with(
+        ["systemctl", "disable", "--now", changelogs.TIMER_UNIT],
+    )
+    check_call.assert_called_once_with(["systemctl", "daemon-reload"])
     assert remove_package.call_args_list == [
         call("python3-launchpadlib"),
         call("python3-apt"),
         call("dpkg-dev"),
     ]
-    unlink.assert_called_once_with(missing_ok=True)
+    assert unlinked == [
+        (changelogs.SYSTEMD_DIR / changelogs.SERVICE_SRC.name, True),
+        (changelogs.SYSTEMD_DIR / changelogs.TIMER_SRC.name, True),
+        (changelogs.SCRIPT_DEST, True),
+    ]
     assert rmtree.call_args_list == [
         call(changelogs.CACHE_DIR, ignore_errors=True),
         call(changelogs.STATE_DIR, ignore_errors=True),
