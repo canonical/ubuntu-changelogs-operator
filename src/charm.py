@@ -10,7 +10,7 @@ import time
 import ops
 import pydantic
 
-from changelogs import Changelogs
+from changelogs import Changelogs, TimerStatus
 from meta_release import MetaRelease
 from nginx import Nginx
 
@@ -36,6 +36,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         framework.observe(self.on.install, self._on_install)
         framework.observe(self.on.start, self._on_start)
         framework.observe(self.on.config_changed, self._on_config_changed)
+        framework.observe(self.on.update_status, self._on_update_status)
         framework.observe(self.on.stop, self._on_stop)
         framework.observe(self.on.remove, self._on_remove)
 
@@ -65,6 +66,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         self.unit.status = ops.ActiveStatus()
 
     def _on_config_changed(self, event: ops.ConfigChangedEvent):
+        """React to configuration updates."""
         self.unit.status = ops.MaintenanceStatus("rolling out configuration")
 
         try:
@@ -82,6 +84,18 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             self.unit.status = ops.BlockedStatus("failed rolling out configuration")
             raise
         self.unit.status = ops.ActiveStatus("ready")
+
+    def _on_update_status(self, event: ops.UpdateStatusEvent) -> None:
+        """Report the health of the changelog extraction process."""
+        status = self.changelogs.timer_status()
+        if status is TimerStatus.RUNNING:
+            logger.info("changelog extraction still in progress")
+            self.unit.status = ops.MaintenanceStatus("extracting changelogs")
+        elif status is TimerStatus.FAILED:
+            logger.error("last changelog extraction failed")
+            self.unit.status = ops.BlockedStatus("changelog extraction failed")
+        else:
+            self.unit.status = ops.ActiveStatus()
 
     def _on_stop(self, event: ops.StopEvent) -> None:
         """Stop the workload."""

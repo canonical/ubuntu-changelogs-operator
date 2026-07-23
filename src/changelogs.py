@@ -6,11 +6,20 @@
 import logging
 import shutil
 import subprocess
+from enum import Enum
 from pathlib import Path
 
 from charmlibs import apt
 
 logger = logging.getLogger(__name__)
+
+
+class TimerStatus(Enum):
+    """Health of a systemd timer."""
+
+    OK = "ok"
+    RUNNING = "running"
+    FAILED = "failed"
 
 
 class Changelogs:
@@ -22,6 +31,7 @@ class Changelogs:
     SERVICE_SRC = CHARM_DIR / "files" / "lp-extract-changelogs.service"
     TIMER_SRC = CHARM_DIR / "files" / "lp-extract-changelogs.timer"
     SYSTEMD_DIR = Path("/etc/systemd/system")
+    SERVICE_UNIT = "lp-extract-changelogs.service"
     TIMER_UNIT = "lp-extract-changelogs.timer"
     CACHE_DIR = Path("/var/cache/ubuntu-changelogs/lp-cache")
     STATE_DIR = Path("/var/lib/ubuntu-changelogs")
@@ -60,6 +70,47 @@ class Changelogs:
             ]
         )
         logger.info("changelogs extracted into %s", destination)
+
+    def timer_status(self) -> TimerStatus:
+        """Report the health of the last (or in-progress) changelog extraction.
+
+        Query the systemd service unit properties. While the process is running,
+        the state is ``activating`` or ``active``. When it stops, the state returns
+        to ``inactive``, and we can check the result for success or failure. If
+        the service has never run, is treated as successful.
+        """
+        result = subprocess.run(
+            [
+                "systemctl",
+                "show",
+                self.SERVICE_UNIT,
+                "--property=ActiveState,Result,ExecMainStatus",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # Parse the result from stdin
+        properties: dict[str, str] = {}
+        for line in result.stdout.splitlines():
+            key, _, value = line.partition("=")
+            properties[key] = value
+
+        # Compute the final status
+        active_state = properties.get("ActiveState", "")
+        run_result = properties.get("Result", "success")
+
+        if active_state in ("activating", "active"):
+            return TimerStatus.RUNNING
+        if active_state == "failed" or run_result != "success":
+            logger.error(
+                "changelog extraction failed: ActiveState=%s Result=%s ExecMainStatus=%s",
+                active_state,
+                run_result,
+                properties.get("ExecMainStatus", ""),
+            )
+            return TimerStatus.FAILED
+        return TimerStatus.OK
 
     def uninstall(self) -> None:
         """Uninstall the tools used to retrieve package changelogs."""

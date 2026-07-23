@@ -4,7 +4,7 @@
 from pathlib import Path
 from unittest.mock import Mock, call
 
-from changelogs import Changelogs
+from changelogs import Changelogs, TimerStatus
 
 
 def test_install_copies_script_and_installs_packages(monkeypatch):
@@ -60,6 +60,82 @@ def test_extract_changelogs_updates_destination_in_place(monkeypatch):
             "/tmp/dest/changelogs",
         ]
     )
+
+
+def test_timer_status_running_returns_running(monkeypatch):
+    run = Mock(
+        return_value=Mock(
+            stdout="ActiveState=activating\nResult=success\nExecMainStatus=0\n",
+        )
+    )
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+
+    changelogs = Changelogs(Mock())
+
+    assert changelogs.timer_status() is TimerStatus.RUNNING
+    run.assert_called_once_with(
+        [
+            "systemctl",
+            "show",
+            changelogs.SERVICE_UNIT,
+            "--property=ActiveState,Result,ExecMainStatus",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_timer_status_failed_active_state_returns_failed(monkeypatch):
+    run = Mock(
+        return_value=Mock(
+            stdout="ActiveState=failed\nResult=exit-code\nExecMainStatus=1\n",
+        )
+    )
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+
+    changelogs = Changelogs(Mock())
+
+    assert changelogs.timer_status() is TimerStatus.FAILED
+
+
+def test_timer_status_non_success_result_returns_failed(monkeypatch):
+    run = Mock(
+        return_value=Mock(
+            stdout="ActiveState=inactive\nResult=timeout\nExecMainStatus=0\n",
+        )
+    )
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+
+    changelogs = Changelogs(Mock())
+
+    assert changelogs.timer_status() is TimerStatus.FAILED
+
+
+def test_timer_status_success_returns_ok(monkeypatch):
+    run = Mock(
+        return_value=Mock(
+            stdout="ActiveState=inactive\nResult=success\nExecMainStatus=0\n",
+        )
+    )
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+
+    changelogs = Changelogs(Mock())
+
+    assert changelogs.timer_status() is TimerStatus.OK
+
+
+def test_timer_status_never_run_returns_ok(monkeypatch):
+    # A unit that has never run reports success with no meaningful exit status.
+    run = Mock(
+        return_value=Mock(
+            stdout="ActiveState=inactive\nResult=success\nExecMainStatus=\n",
+        )
+    )
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+
+    changelogs = Changelogs(Mock())
+
+    assert changelogs.timer_status() is TimerStatus.OK
 
 
 def test_uninstall_removes_packages_and_script(monkeypatch):

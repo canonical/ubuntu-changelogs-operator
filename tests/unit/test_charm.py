@@ -6,6 +6,7 @@
 import pytest
 from ops import testing
 
+from changelogs import TimerStatus
 from charm import UbuntuChangelogsOperatorCharm
 
 
@@ -42,3 +43,23 @@ def test_install_orchestrates_components(monkeypatch: pytest.MonkeyPatch):
         "changelogs.install",
     ]
     assert state_out.unit_status == testing.ActiveStatus("Ready")
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (TimerStatus.OK, testing.ActiveStatus()),
+        (TimerStatus.RUNNING, testing.MaintenanceStatus("extracting changelogs")),
+        (TimerStatus.FAILED, testing.BlockedStatus("changelog extraction failed")),
+    ],
+)
+def test_update_status_reflects_timer_health(
+    monkeypatch: pytest.MonkeyPatch, status: TimerStatus, expected
+):
+    """Test that update-status maps timer health to the unit status."""
+    monkeypatch.setattr("changelogs.Changelogs.timer_status", lambda self: status)
+
+    ctx = testing.Context(UbuntuChangelogsOperatorCharm)
+    state_out = ctx.run(ctx.on.update_status(), testing.State())
+
+    assert state_out.unit_status == expected
