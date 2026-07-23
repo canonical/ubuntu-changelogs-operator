@@ -14,8 +14,8 @@ from charmlibs import apt
 logger = logging.getLogger(__name__)
 
 
-class TimerStatus(Enum):
-    """Health of a systemd timer."""
+class ServiceStatus(Enum):
+    """Health of a systemd service."""
 
     OK = "ok"
     RUNNING = "running"
@@ -54,24 +54,20 @@ class Changelogs:
         subprocess.check_call(["systemctl", "enable", "--now", self.TIMER_UNIT])
         logger.info("changelog dependencies installed")
 
-    def extract_changelogs(self) -> None:
-        """Extract changelogs from Launchpad into the destination directory."""
-        destination = self.destination / "changelogs"
-        subprocess.check_call(
-            [
-                "/usr/bin/python3",
-                str(self.SCRIPT_DEST),
-                "--cache-dir",
-                str(self.CACHE_DIR),
-                "--state-dir",
-                str(self.STATE_DIR),
-                "--output-dir",
-                str(destination),
-            ]
+    def run_extractor(self) -> None:
+        """Trigger the changelog extractor if an extraction is not already running."""
+        result = subprocess.run(
+            ["systemctl", "start", "--no-block", self.SERVICE_UNIT],
+            capture_output=True,
+            text=True,
         )
-        logger.info("changelogs extracted into %s", destination)
+        if result.returncode != 0:
+            details = result.stderr.strip() or result.stdout.strip()
+            logger.error("failed to start %s: %s", self.SERVICE_UNIT, details)
+            raise RuntimeError(f"failed to start {self.SERVICE_UNIT}: {details}")
+        logger.info("changelog extraction triggered")
 
-    def timer_status(self) -> TimerStatus:
+    def extractor_status(self) -> ServiceStatus:
         """Report the health of the last (or in-progress) changelog extraction.
 
         Query the systemd service unit properties. While the process is running,
@@ -101,7 +97,7 @@ class Changelogs:
         run_result = properties.get("Result", "success")
 
         if active_state in ("activating", "active"):
-            return TimerStatus.RUNNING
+            return ServiceStatus.RUNNING
         if active_state == "failed" or run_result != "success":
             logger.error(
                 "changelog extraction failed: ActiveState=%s Result=%s ExecMainStatus=%s",
@@ -109,8 +105,8 @@ class Changelogs:
                 run_result,
                 properties.get("ExecMainStatus", ""),
             )
-            return TimerStatus.FAILED
-        return TimerStatus.OK
+            return ServiceStatus.FAILED
+        return ServiceStatus.OK
 
     def uninstall(self) -> None:
         """Uninstall the tools used to retrieve package changelogs."""

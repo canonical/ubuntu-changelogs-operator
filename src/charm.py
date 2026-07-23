@@ -10,7 +10,7 @@ import time
 import ops
 import pydantic
 
-from changelogs import Changelogs, TimerStatus
+from changelogs import Changelogs, ServiceStatus
 from meta_release import MetaRelease
 from nginx import Nginx
 
@@ -39,6 +39,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         framework.observe(self.on.update_status, self._on_update_status)
         framework.observe(self.on.stop, self._on_stop)
         framework.observe(self.on.remove, self._on_remove)
+        framework.observe(self.on.pull_changelogs_action, self._on_pull_changelogs)
 
     def _on_install(self, event: ops.InstallEvent):
         """Install the workload on the machine."""
@@ -87,11 +88,11 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
 
     def _on_update_status(self, event: ops.UpdateStatusEvent) -> None:
         """Report the health of the changelog extraction process."""
-        status = self.changelogs.timer_status()
-        if status is TimerStatus.RUNNING:
+        status = self.changelogs.extractor_status()
+        if status is ServiceStatus.RUNNING:
             logger.info("changelog extraction still in progress")
             self.unit.status = ops.MaintenanceStatus("extracting changelogs")
-        elif status is TimerStatus.FAILED:
+        elif status is ServiceStatus.FAILED:
             logger.error("last changelog extraction failed")
             self.unit.status = ops.BlockedStatus("changelog extraction failed")
         else:
@@ -110,6 +111,19 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         """Remove the workload."""
         self.nginx.uninstall()
         self.changelogs.uninstall()
+
+    def _on_pull_changelogs(self, event: ops.ActionEvent) -> None:
+        """Handle the pull-changelogs action."""
+        try:
+            self.changelogs.run_extractor()
+        except Exception as e:
+            logger.exception("pull-changelogs action failed")
+            event.fail(f"failed to trigger changelog extraction: {e}")
+            return
+        event.set_results({"result": "changelog extraction triggered"})
+        # We set the unit on a maintenance status, which will be cleaned
+        # up by the on-update-status hook.
+        self.unit.status = ops.MaintenanceStatus("extracting changelogs")
 
 
 if __name__ == "__main__":  # pragma: nocover

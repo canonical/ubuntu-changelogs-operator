@@ -1,10 +1,11 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
 
-from pathlib import Path
 from unittest.mock import Mock, call
 
-from changelogs import Changelogs, TimerStatus
+import pytest
+
+from changelogs import Changelogs, ServiceStatus
 
 
 def test_install_copies_script_and_installs_packages(monkeypatch):
@@ -41,28 +42,7 @@ def test_install_copies_script_and_installs_packages(monkeypatch):
     ]
 
 
-def test_extract_changelogs_updates_destination_in_place(monkeypatch):
-    check_call = Mock()
-    monkeypatch.setattr("changelogs.subprocess.check_call", check_call)
-
-    changelogs = Changelogs(Path("/tmp/dest"))
-    changelogs.extract_changelogs()
-
-    check_call.assert_called_once_with(
-        [
-            "/usr/bin/python3",
-            str(changelogs.SCRIPT_DEST),
-            "--cache-dir",
-            str(changelogs.CACHE_DIR),
-            "--state-dir",
-            str(changelogs.STATE_DIR),
-            "--output-dir",
-            "/tmp/dest/changelogs",
-        ]
-    )
-
-
-def test_timer_status_running_returns_running(monkeypatch):
+def test_extractor_status_running_returns_running(monkeypatch):
     run = Mock(
         return_value=Mock(
             stdout="ActiveState=activating\nResult=success\nExecMainStatus=0\n",
@@ -72,7 +52,7 @@ def test_timer_status_running_returns_running(monkeypatch):
 
     changelogs = Changelogs(Mock())
 
-    assert changelogs.timer_status() is TimerStatus.RUNNING
+    assert changelogs.extractor_status() is ServiceStatus.RUNNING
     run.assert_called_once_with(
         [
             "systemctl",
@@ -85,7 +65,7 @@ def test_timer_status_running_returns_running(monkeypatch):
     )
 
 
-def test_timer_status_failed_active_state_returns_failed(monkeypatch):
+def test_extractor_status_failed_active_state_returns_failed(monkeypatch):
     run = Mock(
         return_value=Mock(
             stdout="ActiveState=failed\nResult=exit-code\nExecMainStatus=1\n",
@@ -95,10 +75,10 @@ def test_timer_status_failed_active_state_returns_failed(monkeypatch):
 
     changelogs = Changelogs(Mock())
 
-    assert changelogs.timer_status() is TimerStatus.FAILED
+    assert changelogs.extractor_status() is ServiceStatus.FAILED
 
 
-def test_timer_status_non_success_result_returns_failed(monkeypatch):
+def test_extractor_status_non_success_result_returns_failed(monkeypatch):
     run = Mock(
         return_value=Mock(
             stdout="ActiveState=inactive\nResult=timeout\nExecMainStatus=0\n",
@@ -108,10 +88,10 @@ def test_timer_status_non_success_result_returns_failed(monkeypatch):
 
     changelogs = Changelogs(Mock())
 
-    assert changelogs.timer_status() is TimerStatus.FAILED
+    assert changelogs.extractor_status() is ServiceStatus.FAILED
 
 
-def test_timer_status_success_returns_ok(monkeypatch):
+def test_extractor_status_success_returns_ok(monkeypatch):
     run = Mock(
         return_value=Mock(
             stdout="ActiveState=inactive\nResult=success\nExecMainStatus=0\n",
@@ -121,10 +101,10 @@ def test_timer_status_success_returns_ok(monkeypatch):
 
     changelogs = Changelogs(Mock())
 
-    assert changelogs.timer_status() is TimerStatus.OK
+    assert changelogs.extractor_status() is ServiceStatus.OK
 
 
-def test_timer_status_never_run_returns_ok(monkeypatch):
+def test_extractor_status_never_run_returns_ok(monkeypatch):
     # A unit that has never run reports success with no meaningful exit status.
     run = Mock(
         return_value=Mock(
@@ -135,7 +115,30 @@ def test_timer_status_never_run_returns_ok(monkeypatch):
 
     changelogs = Changelogs(Mock())
 
-    assert changelogs.timer_status() is TimerStatus.OK
+    assert changelogs.extractor_status() is ServiceStatus.OK
+
+
+def test_run_extractor_starts_service(monkeypatch):
+    run = Mock(return_value=Mock(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+
+    changelogs = Changelogs(Mock())
+    changelogs.run_extractor()
+
+    run.assert_called_once_with(
+        ["systemctl", "start", "--no-block", changelogs.SERVICE_UNIT],
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_run_extractor_raises_on_failure(monkeypatch):
+    run = Mock(return_value=Mock(returncode=1, stdout="", stderr="boom"))
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+
+    changelogs = Changelogs(Mock())
+    with pytest.raises(RuntimeError, match="boom"):
+        changelogs.run_extractor()
 
 
 def test_uninstall_removes_packages_and_script(monkeypatch):
