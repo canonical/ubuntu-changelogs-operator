@@ -17,11 +17,12 @@ class Nginx:
     """Manage the nginx web server used by Ubuntu Changelogs."""
 
     CHARM_DIR = Path(__file__).parent.parent
+    PORT = 80
     NGINX_CONFIG = CHARM_DIR / "files" / "nginx.conf"
-    ROBOTS_TXT = CHARM_DIR / "files" / "robots.txt"
     DEFAULT_CONFIG = Path("/etc/nginx/sites-enabled/default")
     CUSTOM_CONFIG = Path("/etc/nginx/sites-enabled/index.conf")
     SERVING_DIR = Path("/var/www/changelogs.ubuntu.com")
+    ROBOTS_TXT = CHARM_DIR / "files" / "robots.txt"
 
     def install(self) -> None:
         """Install nginx through APT and apply static configuration."""
@@ -70,10 +71,6 @@ class Nginx:
         """Return the installed nginx version."""
         result = subprocess.run(["nginx", "-v"], check=True, capture_output=True, text=True)
         return result.stderr.removeprefix("nginx version: nginx/").strip()
-
-    def get_serving_dir(self) -> Path:
-        """Return the directory being served."""
-        return self.SERVING_DIR
 
     def _systemctl(self, action: str) -> None:
         """Run a systemctl action against nginx and check for errors."""

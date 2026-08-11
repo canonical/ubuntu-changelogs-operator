@@ -31,8 +31,17 @@ parts:
     organize:
       "*": files/
 
+charm-libs:
+  - lib: traefik_k8s.ingress
+    version: "2"
+
 config:
   options:
+    hostname:
+      type: string
+      default: "changelogs.ubuntu.com"
+      description: |
+        The hostname for the changelogs charm
     meta_release_ref:
       type: string
       default: main
@@ -43,3 +52,9 @@ actions:
   pull-changelogs:
     description: Trigger the changelog extractor if it's not already running.
     additionalProperties: false
+
+requires:
+  ingress_changelogs:
+    interface: ingress
+    limit: 1
+    optional: true

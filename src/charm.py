@@ -9,6 +9,10 @@ import time
 
 import ops
 import pydantic
+from charms.traefik_k8s.v2.ingress import (
+    IngressPerAppReadyEvent,
+    IngressPerAppRequirer,
+)
 
 from changelogs import Changelogs, ServiceStatus
 from meta_release import MetaRelease
@@ -30,8 +34,15 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         super().__init__(framework)
 
         self.nginx = Nginx()
-        self.meta_release = MetaRelease(self.nginx.get_serving_dir())
-        self.changelogs = Changelogs(self.nginx.get_serving_dir())
+        self.meta_release = MetaRelease(self.nginx.SERVING_DIR)
+        self.changelogs = Changelogs(self.nginx.SERVING_DIR)
+
+        self.ingress_changelogs = IngressPerAppRequirer(
+            charm=self,
+            port=self.nginx.PORT,
+            strip_prefix=True,
+            relation_name="ingress_changelogs",
+        )
 
         framework.observe(self.on.install, self._on_install)
         framework.observe(self.on.start, self._on_start)
@@ -40,6 +51,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         framework.observe(self.on.stop, self._on_stop)
         framework.observe(self.on.remove, self._on_remove)
         framework.observe(self.on.pull_changelogs_action, self._on_pull_changelogs)
+        framework.observe(self.ingress_changelogs.on.ready, self._on_ingress_ready)
 
     def _on_install(self, event: ops.InstallEvent):
         """Install the workload on the machine."""
@@ -84,6 +96,8 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             logger.exception("Error while rolling out configuration")
             self.unit.status = ops.BlockedStatus("failed rolling out configuration")
             raise
+
+        logger.info("Configuration successfully updated")
         self.unit.status = ops.ActiveStatus("ready")
 
     def _on_update_status(self, event: ops.UpdateStatusEvent) -> None:
@@ -111,6 +125,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         """Remove the workload."""
         self.nginx.uninstall()
         self.changelogs.uninstall()
+        logger.info("Services removed")
 
     def _on_pull_changelogs(self, event: ops.ActionEvent) -> None:
         """Handle the pull-changelogs action."""
@@ -124,6 +139,16 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         # We set the unit on a maintenance status, which will be cleaned
         # up by the on-update-status hook.
         self.unit.status = ops.MaintenanceStatus("extracting changelogs")
+
+    def _on_ingress_ready(self, event: IngressPerAppReadyEvent):
+        """Handle the ingress connection."""
+        logger.info("Ingress is ready. URL: %s", event.url)
+        hostname: str | None = self.config.get("hostname")  # type: ignore[assignment]
+        self.ingress_changelogs.provide_ingress_requirements(
+            port=self.nginx.PORT,
+            host=hostname,
+        )
+        logger.info("Ingress successfully configured")
 
 
 if __name__ == "__main__":  # pragma: nocover
