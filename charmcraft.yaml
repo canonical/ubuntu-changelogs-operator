@@ -1,7 +1,7 @@
 # This file configures Charmcraft.
 # See https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/
 type: charm
-name: ubuntu-changelogs-operator
+name: ubuntu-changelogs
 title: Ubuntu Changelogs Operator
 summary: The operator charm behind https://changelogs.ubuntu.com/
 description: |
