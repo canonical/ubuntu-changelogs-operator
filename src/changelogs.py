@@ -35,7 +35,7 @@ class Changelogs:
     TIMER_UNIT = "lp-extract-changelogs.timer"
     CACHE_DIR = Path("/var/cache/ubuntu-changelogs/lp-cache")
     STATE_DIR = Path("/var/lib/ubuntu-changelogs")
-    PACKAGES = ["python3-launchpadlib", "python3-apt", "dpkg-dev"]
+    PACKAGES = ["python3-launchpadlib", "dpkg-dev"]
 
     def __init__(self, destination: Path):
         self.destination = destination
