@@ -94,7 +94,8 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             self.meta_release.pull_updates(config.meta_release_ref)
         except Exception as e:
             logger.error(__name__ + f": error while rolling out configuration: {e}")
-            self.unit.status = ops.BlockedStatus("failed rolling out configuration")
+            self.unit.status = ops.MaintenanceStatus("failed rolling out configuration")
+            event.defer()
             return
 
         logger.info(__name__ + ": configuration successfully updated")
@@ -108,7 +109,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             self.unit.status = ops.MaintenanceStatus("extracting changelogs")
         elif status is ServiceStatus.FAILED:
             logger.error(__name__ + ": last changelog extraction failed")
-            self.unit.status = ops.BlockedStatus("changelog extraction failed")
+            self.unit.status = ops.MaintenanceStatus("changelog extraction failed")
         else:
             self.unit.status = ops.ActiveStatus()
 
