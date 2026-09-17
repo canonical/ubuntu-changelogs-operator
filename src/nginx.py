@@ -34,12 +34,12 @@ class Nginx:
         shutil.copy2(self.NGINX_CONFIG, self.CUSTOM_CONFIG)
         self.SERVING_DIR.mkdir(parents=True, exist_ok=True)
 
-        logger.info("nginx installed and configured")
+        logger.info(__name__ + ": installed and configured")
 
     def setup(self) -> None:
         """Copy static files into the serving directory."""
         shutil.copy2(self.ROBOTS_TXT, self.SERVING_DIR / "robots.txt")
-        logger.info("static files copied to serving directory")
+        logger.info(__name__ + ": static files copied to serving directory")
 
     def is_running(self) -> bool:
         """Return whether nginx is running."""
@@ -81,5 +81,5 @@ class Nginx:
         )
         if result.returncode != 0:
             details = result.stderr.strip() or result.stdout.strip()
-            logger.error("systemctl %s nginx failed: %s", action, details)
+            logger.error(__name__ + ": systemctl %s nginx failed: %s", action, details)
             raise RuntimeError(f"systemctl {action} nginx failed: {details}")

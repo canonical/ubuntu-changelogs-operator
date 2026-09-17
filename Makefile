@@ -1,4 +1,4 @@
-NAME:=ubuntu-changelogs-operator
+NAME:=ubuntu-changelogs
 CHARM:=$(NAME)_amd64.charm
 
 .PHONY: init

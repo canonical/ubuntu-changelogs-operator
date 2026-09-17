@@ -36,16 +36,18 @@ class MetaRelease:
     def install(self) -> None:
         """Install the tools required to retrieve meta-release data."""
         apt.add_package("git")
-        logger.info("meta-release dependencies installed")
+        logger.info(__name__ + ": dependencies installed")
 
     def pull_updates(self, ref: str) -> None:
         """Publish a fresh copy of the meta-release repository."""
-        logger.info("cloning %s (ref: %s) into %s", self.REPOSITORY, ref, self.destination)
+        logger.info(
+            "meta-release: cloning %s (ref: %s) into %s", self.REPOSITORY, ref, self.destination
+        )
         temporary_directory = Path(tempfile.mkdtemp(prefix="ubuntu-changelogs-"))
         clone_directory = temporary_directory / "meta-release"
         try:
             subprocess.check_call(["git", "clone", self.REPOSITORY, str(clone_directory)])
-            logger.info("repository cloned")
+            logger.info(__name__ + ": repository cloned")
             subprocess.check_call(
                 [
                     "git",
@@ -57,7 +59,7 @@ class MetaRelease:
                     ref,
                 ]
             )
-            logger.info("checked out ref %s", ref)
+            logger.info(__name__ + ": checked out ref %s", ref)
             self.destination.mkdir(parents=True, exist_ok=True)
             for name in self.PUBLISHED_FILES:
                 source = clone_directory / name
@@ -72,7 +74,7 @@ class MetaRelease:
                     raise FileNotFoundError(
                         f"expected published file '{name}' missing from {self.REPOSITORY}"
                     )
-            logger.info("copied all files")
+            logger.info(__name__ + ": copied all files")
         finally:
             shutil.rmtree(temporary_directory, ignore_errors=True)
 

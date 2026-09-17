@@ -61,13 +61,13 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             self.meta_release.install()
             self.changelogs.install()
         except Exception:
-            logger.exception("Error while installing Ubuntu changelogs dependencies")
+            logger.exception(__name__ + ": error while installing Ubuntu changelogs dependencies")
             self.unit.status = ops.BlockedStatus(
                 "failed installing ubuntu changelogs dependencies"
             )
             raise
 
-        logger.info("Ubuntu changelogs dependencies installed")
+        logger.info(__name__ + ": ubuntu changelogs dependencies installed")
         self.unit.status = ops.ActiveStatus("Ready")
 
     def _on_start(self, event: ops.StartEvent):
@@ -75,7 +75,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         self.unit.status = ops.MaintenanceStatus("starting services")
         self.nginx.start()
         self.unit.set_workload_version(self.nginx.get_version())
-        logger.info("Services started")
+        logger.info(__name__ + ": services started")
         self.unit.status = ops.ActiveStatus()
 
     def _on_config_changed(self, event: ops.ConfigChangedEvent):
@@ -85,7 +85,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         try:
             config = self.load_config(CharmConfig)
         except pydantic.ValidationError:
-            logger.exception("Error while parsing configuration")
+            logger.exception(__name__ + ": error while parsing configuration")
             self.unit.status = ops.BlockedStatus("failed parsing configuration")
             raise
 
@@ -93,21 +93,21 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             self.nginx.setup()
             self.meta_release.pull_updates(config.meta_release_ref)
         except Exception:
-            logger.exception("Error while rolling out configuration")
+            logger.exception(__name__ + ": error while rolling out configuration")
             self.unit.status = ops.BlockedStatus("failed rolling out configuration")
             raise
 
-        logger.info("Configuration successfully updated")
+        logger.info(__name__ + ": configuration successfully updated")
         self.unit.status = ops.ActiveStatus("ready")
 
     def _on_update_status(self, event: ops.UpdateStatusEvent) -> None:
         """Report the health of the changelog extraction process."""
         status = self.changelogs.extractor_status()
         if status is ServiceStatus.RUNNING:
-            logger.info("changelog extraction still in progress")
+            logger.info(__name__ + ": changelog extraction still in progress")
             self.unit.status = ops.MaintenanceStatus("extracting changelogs")
         elif status is ServiceStatus.FAILED:
-            logger.error("last changelog extraction failed")
+            logger.error(__name__ + ": last changelog extraction failed")
             self.unit.status = ops.BlockedStatus("changelog extraction failed")
         else:
             self.unit.status = ops.ActiveStatus()
@@ -125,14 +125,14 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         """Remove the workload."""
         self.nginx.uninstall()
         self.changelogs.uninstall()
-        logger.info("Services removed")
+        logger.info(__name__ + ": services removed")
 
     def _on_pull_changelogs(self, event: ops.ActionEvent) -> None:
         """Handle the pull-changelogs action."""
         try:
             self.changelogs.run_extractor()
         except Exception as e:
-            logger.exception("pull-changelogs action failed")
+            logger.exception(__name__ + ": pull-changelogs action failed")
             event.fail(f"failed to trigger changelog extraction: {e}")
             return
         event.set_results({"result": "changelog extraction triggered"})
@@ -142,13 +142,13 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
 
     def _on_ingress_ready(self, event: IngressPerAppReadyEvent):
         """Handle the ingress connection."""
-        logger.info("Ingress is ready. URL: %s", event.url)
+        logger.info(__name__ + ": ingress is ready. URL: %s", event.url)
         hostname: str | None = self.config.get("hostname")  # type: ignore[assignment]
         self.ingress_changelogs.provide_ingress_requirements(
             port=self.nginx.PORT,
             host=hostname,
         )
-        logger.info("Ingress successfully configured")
+        logger.info(__name__ + ": ingress successfully configured")
 
 
 if __name__ == "__main__":  # pragma: nocover

@@ -52,7 +52,7 @@ class Changelogs:
         shutil.copy2(self.TIMER_SRC, self.SYSTEMD_DIR / self.TIMER_SRC.name)
         subprocess.check_call(["systemctl", "daemon-reload"])
         subprocess.check_call(["systemctl", "enable", "--now", self.TIMER_UNIT])
-        logger.info("changelog dependencies installed")
+        logger.info(__name__ + ": dependencies installed")
 
     def run_extractor(self) -> None:
         """Trigger the changelog extractor if an extraction is not already running."""
@@ -63,9 +63,9 @@ class Changelogs:
         )
         if result.returncode != 0:
             details = result.stderr.strip() or result.stdout.strip()
-            logger.error("failed to start %s: %s", self.SERVICE_UNIT, details)
+            logger.error(__name__ + ": failed to start %s: %s", self.SERVICE_UNIT, details)
             raise RuntimeError(f"failed to start {self.SERVICE_UNIT}: {details}")
-        logger.info("changelog extraction triggered")
+        logger.info(__name__ + ": extraction triggered")
 
     def extractor_status(self) -> ServiceStatus:
         """Report the health of the last (or in-progress) changelog extraction.
@@ -100,7 +100,7 @@ class Changelogs:
             return ServiceStatus.RUNNING
         if active_state == "failed" or run_result != "success":
             logger.error(
-                "changelog extraction failed: ActiveState=%s Result=%s ExecMainStatus=%s",
+                __name__ + ": extraction failed: ActiveState=%s Result=%s ExecMainStatus=%s",
                 active_state,
                 run_result,
                 properties.get("ExecMainStatus", ""),
