@@ -14,6 +14,13 @@ from charmlibs import apt
 logger = logging.getLogger(__name__)
 
 
+class PullUpdatesError(Exception):
+    """An exception class indicating the pull operation failed."""
+
+    def __init__(self):
+        super().__init__("failed to pull updates")
+
+
 class MetaRelease:
     """Pull meta-release files from the repo and copy them to a destination directory."""
 
@@ -75,6 +82,9 @@ class MetaRelease:
                         f"expected published file '{name}' missing from {self.REPOSITORY}"
                     )
             logger.info(__name__ + ": copied all files")
+        except subprocess.CalledProcessError as e:
+            logger.error(__name__ + f": failed to clone repo: status code {e.returncode}")
+            raise PullUpdatesError() from None
         finally:
             shutil.rmtree(temporary_directory, ignore_errors=True)
 

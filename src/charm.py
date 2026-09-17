@@ -92,10 +92,10 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         try:
             self.nginx.setup()
             self.meta_release.pull_updates(config.meta_release_ref)
-        except Exception:
-            logger.exception(__name__ + ": error while rolling out configuration")
+        except Exception as e:
+            logger.error(__name__ + f": error while rolling out configuration: {e}")
             self.unit.status = ops.BlockedStatus("failed rolling out configuration")
-            raise
+            return
 
         logger.info(__name__ + ": configuration successfully updated")
         self.unit.status = ops.ActiveStatus("ready")
