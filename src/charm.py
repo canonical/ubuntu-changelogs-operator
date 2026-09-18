@@ -37,11 +37,11 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         self.meta_release = MetaRelease(self.nginx.SERVING_DIR)
         self.changelogs = Changelogs(self.nginx.SERVING_DIR)
 
-        self.ingress_changelogs = IngressPerAppRequirer(
+        self.ingress = IngressPerAppRequirer(
             charm=self,
             port=self.nginx.PORT,
             strip_prefix=True,
-            relation_name="ingress_changelogs",
+            relation_name="ingress",
         )
 
         framework.observe(self.on.install, self._on_install)
@@ -51,7 +51,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         framework.observe(self.on.stop, self._on_stop)
         framework.observe(self.on.remove, self._on_remove)
         framework.observe(self.on.pull_changelogs_action, self._on_pull_changelogs)
-        framework.observe(self.ingress_changelogs.on.ready, self._on_ingress_ready)
+        framework.observe(self.ingress.on.ready, self._on_ingress_ready)
 
     def _on_install(self, event: ops.InstallEvent):
         """Install the workload on the machine."""
@@ -145,9 +145,9 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         """Handle the ingress connection."""
         logger.info(__name__ + ": ingress is ready. URL: %s", event.url)
         hostname: str | None = self.config.get("hostname")  # type: ignore[assignment]
-        self.ingress_changelogs.provide_ingress_requirements(
-            port=self.nginx.PORT,
+        self.ingress.provide_ingress_requirements(
             host=hostname,
+            port=self.nginx.PORT,
         )
         logger.info(__name__ + ": ingress successfully configured")
 

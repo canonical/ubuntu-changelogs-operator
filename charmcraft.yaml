@@ -54,7 +54,7 @@ actions:
     additionalProperties: false
 
 requires:
-  ingress_changelogs:
+  ingress:
     interface: ingress
     limit: 1
     optional: true
