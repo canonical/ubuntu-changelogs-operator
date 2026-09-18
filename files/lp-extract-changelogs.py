@@ -10,6 +10,7 @@ import glob
 import logging
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -29,6 +30,7 @@ DEFAULT_STATE_DIR = "/var/lib/ubuntu-changelogs"
 DEFAULT_OUTPUT_DIR = "./changelogs"
 DOWNLOAD_TIMEOUT = 30
 SERVICE_ROOT = "production"
+LP_CRAWLER_TMPDIR_PREFIX = "lp-crawler-"
 
 # get all uploads (including all distro series and all pockets)
 # for this distribution since a given date
@@ -43,6 +45,17 @@ def debug_print_lp(lp_object):
     print(f"entries: {sorted(lp_object.lp_entries)}")
     print(f"operations: {sorted(lp_object.lp_operations)}")
     print("")
+
+
+def cleanup_tmpdirs():
+    try:
+        dirs = glob.glob(f"/tmp/{LP_CRAWLER_TMPDIR_PREFIX}*")
+        for dir in dirs:
+            shutil.rmtree(dir)
+        if len(dirs) > 0:
+            logging.info("cleaned up temp dirs")
+    except Exception as error:
+        logging.error("failed to cleanup temp dirs: %s", error)
 
 
 def poolhash(name):
@@ -249,7 +262,7 @@ class LaunchpadChangelogsCrawler:
             return False
 
         # fetch/unpack
-        tmpdir = tempfile.mkdtemp(prefix="lp-crawler-")
+        tmpdir = tempfile.mkdtemp(prefix=LP_CRAWLER_TMPDIR_PREFIX)
         try:
             if not self._fetch_source(s.srcurls, tmpdir):
                 logging.error(f"{s.srcname} {s.srcversion} failed to fetch")
@@ -369,6 +382,12 @@ def parse_arguments(arguments=None):
     return parser.parse_args(arguments)
 
 
+def handle_sigterm(signum, frame):
+    logging.info("SIGTERM received, performing cleanup")
+    cleanup_tmpdirs()
+    sys.exit(0)
+
+
 if __name__ == "__main__":
     args = parse_arguments()
 
@@ -382,6 +401,10 @@ if __name__ == "__main__":
     if lock < 0:
         logging.warning("another extractor is running, exiting")
         sys.exit(1)
+
+    # try to cleanup stray tempdirs and set SIGTERM handler
+    cleanup_tmpdirs()
+    signal.signal(signal.SIGTERM, handle_sigterm)
 
     # set a sensible default timeout to avoid hanging forever
     socket.setdefaulttimeout(120)
@@ -406,6 +429,7 @@ if __name__ == "__main__":
     )
     if not success:
         logging.error("crawl incomplete; last check time was not updated")
+        cleanup_tmpdirs()
         sys.exit(1)
 
     # test code
