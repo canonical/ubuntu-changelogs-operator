@@ -68,7 +68,7 @@ lint.ignore = [
     "D409",
     "D413",
 ]
-lint.per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
+lint.per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"], "files/*" = ["D102","D103"]}
 extend-exclude = ["__pycache__", "*.egg_info"]
 
 [tool.ruff.lint.mccabe]

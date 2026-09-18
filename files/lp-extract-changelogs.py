@@ -1,8 +1,5 @@
 #!/usr/bin/python3
-#
-# get changelogs, NEWS.Debian and copyright directly from LP
-# instead of crawling the archive.
-#
+"""Get changelogs, NEWS.Debian and copyright directly from LP instead of crawling the archive."""
 
 import argparse
 import datetime
@@ -38,7 +35,7 @@ DISTRIBUTION = "Ubuntu"
 
 
 def debug_print_lp(lp_object):
-    """helper to debug the launchpadlib stuff more easily"""
+    """Print debug information for a lp object."""
     print(f"name: {lp_object.__class__.__name__}")
     print(f"attributes: {sorted(lp_object.lp_attributes)}")
     print(f"collections: {sorted(lp_object.lp_collections)}")
@@ -66,7 +63,7 @@ def poolhash(name):
 
 
 class LaunchpadSourcePackage:
-    """represents a launchpad source package"""
+    """Represents a launchpad source package."""
 
     # arches and pool
     SUPPORTED_ARCHES = ["i386", "amd64"]
@@ -84,7 +81,6 @@ class LaunchpadSourcePackage:
 
     @property
     def published(self):
-        "is it already published"
         return self._lp_source.date_published is not None
 
     @property
@@ -125,11 +121,12 @@ class LaunchpadSourcePackage:
         return binaries
 
     def __str__(self):
-        return f"{self._lp_source.source_package_name}: {self._lp_source.source_package_version} ({self._lp_source.date_published})"
+        src = self._lp_source
+        return f"{src.source_package_name}: {src.source_package_version} ({src.date_published})"
 
 
 class LaunchpadChangelogsCrawler:
-    """a crawler that can find out about changed packages in LP"""
+    """A crawler that can find out about changed packages in LP."""
 
     # LP service name (free form)
     SERVICE_NAME = "get_changelogs"
@@ -164,13 +161,12 @@ class LaunchpadChangelogsCrawler:
         else:
             logging.warning("assuming last check 30 days ago")
             logging.warning(
-                "MAKE SURE THAT YOU POPULATED THE CHANGELOGS "
-                "FROM A DIFFERENT SOURCE INITIALLY"
+                "MAKE SURE THAT YOU POPULATED THE CHANGELOGS FROM A DIFFERENT SOURCE INITIALLY"
             )
             self._time_of_last_check = time.time() - 30 * 24 * 60 * 60
 
     def login(self):
-        "login and figure out if interactive or token login can be used"
+        """Login and figure out if interactive or token login can be used."""
         # credentials.load and credentials.save were misbehaving on new
         # launchpadlib, and per webops, we can get away with using this
         # service anonymously.  Fix the "right way" if it becomes a
@@ -182,9 +178,7 @@ class LaunchpadChangelogsCrawler:
         #    self.login_with_token(self.credentials_file)
 
         service = SERVICE_ROOT
-        self._launchpad = Launchpad.login_anonymously(
-            self.SERVICE_NAME, service, self.lp_cachedir
-        )
+        self._launchpad = Launchpad.login_anonymously(self.SERVICE_NAME, service, self.lp_cachedir)
 
     def login_interactive(self):
         service = SERVICE_ROOT
@@ -219,9 +213,7 @@ class LaunchpadChangelogsCrawler:
         # the collection: the worst case is that we encounter the same
         # publication twice.  With filtering on mutable properties, it would
         # be possible to lose entries between two successive batches.
-        changed = archive.getPublishedSources(
-            order_by_date=True, created_since_date=date
-        )
+        changed = archive.getPublishedSources(order_by_date=True, created_since_date=date)
         logging.debug(f"getPublishedSources() took {time.time() - now} seconds")
         self._get_changelogs_from_source_package_history_collection(changed)
 
@@ -232,7 +224,7 @@ class LaunchpadChangelogsCrawler:
         start_time = time.time()
         for source_raw in changed:
             progress_count += 1
-            if progress_count % progress_threshold == 0 :
+            if progress_count % progress_threshold == 0:
                 logging.info(f"processed {progress_count} packages...")
 
             s = LaunchpadSourcePackage(self._launchpad, source_raw)
@@ -244,12 +236,16 @@ class LaunchpadChangelogsCrawler:
                 logging.debug(f"{s.srcname} in state {s.status}")
                 continue
 
-            dest = f"{self.targetdir}/pool/{s.srccomponent}/{poolhash(s.srcname)}/{s.srcname}/{s.srcname}_{s.srcversion}"
+            dest = (
+                f"{self.targetdir}/pool/{s.srccomponent}/{poolhash(s.srcname)}"
+                f"/{s.srcname}/{s.srcname}_{s.srcversion}"
+            )
 
             if not self._unpack_changelogs_to_target(s, dest):
                 continue
 
-        logging.info(f"extracted {self.extracted} changelogs in {time.time() - start_time} seconds")
+        duration = time.time() - start_time
+        logging.info(f"extracted {self.extracted} changelogs in {duration} seconds")
         return True
 
     def _unpack_changelogs_to_target(self, s, dest):
