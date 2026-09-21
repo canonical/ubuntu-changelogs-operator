@@ -6,6 +6,6 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/python3 /usr/local/bin/lp-extract-changelogs \
-    --cache-dir /var/cache/ubuntu-changelogs/lp-cache \
+    --cache-dir /var/cache/ubuntu-changelogs \
     --state-dir /var/lib/ubuntu-changelogs \
     --output-dir /var/www/changelogs.ubuntu.com/changelogs

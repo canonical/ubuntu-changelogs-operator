@@ -22,7 +22,7 @@ from launchpadlib.credentials import Credentials
 from launchpadlib.launchpad import Launchpad
 
 LOCK_FILE = "/run/lock/lp-extract-changelogs.lock"
-DEFAULT_CACHE_DIR = "/var/cache/ubuntu-changelogs/lp-cache"
+DEFAULT_CACHE_DIR = "/var/cache/ubuntu-changelogs"
 DEFAULT_STATE_DIR = "/var/lib/ubuntu-changelogs"
 DEFAULT_OUTPUT_DIR = "./changelogs"
 DOWNLOAD_TIMEOUT = 30
@@ -42,17 +42,6 @@ def debug_print_lp(lp_object):
     print(f"entries: {sorted(lp_object.lp_entries)}")
     print(f"operations: {sorted(lp_object.lp_operations)}")
     print("")
-
-
-def cleanup_tmpdirs():
-    try:
-        dirs = glob.glob(f"/tmp/{LP_CRAWLER_TMPDIR_PREFIX}*")
-        for dir in dirs:
-            shutil.rmtree(dir)
-        if len(dirs) > 0:
-            logging.info("cleaned up temp dirs")
-    except Exception as error:
-        logging.error("failed to cleanup temp dirs: %s", error)
 
 
 def poolhash(name):
@@ -140,7 +129,10 @@ class LaunchpadChangelogsCrawler:
         statedir=DEFAULT_STATE_DIR,
         targetdir=DEFAULT_OUTPUT_DIR,
     ):
-        self.lp_cachedir = os.path.abspath(cachedir)
+        self.lp_cachedir = os.path.abspath(cachedir + "/lp-cache")
+        self.downloads_cachedir = os.path.abspath(cachedir + "/downloads")
+        os.makedirs(self.downloads_cachedir, exist_ok=True)
+
         self.credentials_file = os.path.join(os.path.abspath(statedir), "lp-credential.txt")
         self.last_check_file = os.path.join(os.path.abspath(statedir), "last_check.txt")
         self._launchpad = None
@@ -258,7 +250,7 @@ class LaunchpadChangelogsCrawler:
             return False
 
         # fetch/unpack
-        tmpdir = tempfile.mkdtemp(prefix=LP_CRAWLER_TMPDIR_PREFIX)
+        tmpdir = tempfile.mkdtemp(dir=self.downloads_cachedir, prefix=LP_CRAWLER_TMPDIR_PREFIX)
         try:
             if not self._fetch_source(s.srcurls, tmpdir):
                 logging.error(f"{s.srcname} {s.srcversion} failed to fetch")
@@ -311,6 +303,9 @@ class LaunchpadChangelogsCrawler:
             except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
                 logging.error("failed to retrieve %s: %s", url, error)
                 return False
+            except OSError as error:
+                logging.error("failed to write %s to file %s: %s", url, target, error)
+                return False
         return True
 
     def _unpack_source(self, unpackdir, tmpdir):
@@ -348,6 +343,16 @@ class LaunchpadChangelogsCrawler:
         with open(self.last_check_file, "w+") as fd:
             fd.write(str(self._time_of_last_check))
 
+    def cleanup_tmpdirs(self):
+        try:
+            dirs = glob.glob(f"{self.downloads_cachedir}/*")
+            for dir in dirs:
+                shutil.rmtree(dir)
+                if len(dirs) > 0:
+                    logging.info("cleaned up temp dirs")
+        except Exception as error:
+            logging.error("failed to cleanup temp dirs: %s", error)
+
 
 def parse_arguments(arguments=None):
     """Parse command-line arguments."""
@@ -378,12 +383,6 @@ def parse_arguments(arguments=None):
     return parser.parse_args(arguments)
 
 
-def handle_sigterm(signum, frame):
-    logging.info("SIGTERM received, performing cleanup")
-    cleanup_tmpdirs()
-    sys.exit(0)
-
-
 if __name__ == "__main__":
     args = parse_arguments()
 
@@ -398,10 +397,6 @@ if __name__ == "__main__":
         logging.warning("another extractor is running, exiting")
         sys.exit(1)
 
-    # try to cleanup stray tempdirs and set SIGTERM handler
-    cleanup_tmpdirs()
-    signal.signal(signal.SIGTERM, handle_sigterm)
-
     # set a sensible default timeout to avoid hanging forever
     socket.setdefaulttimeout(120)
 
@@ -411,6 +406,17 @@ if __name__ == "__main__":
         statedir=args.state_dir,
         targetdir=args.output_dir,
     )
+
+    # try to cleanup stray tempdirs and set SIGTERM handler
+    c.cleanup_tmpdirs()
+
+    def handle_sigterm(signum, frame):
+        logging.info("SIGTERM received, performing cleanup")
+        c.cleanup_tmpdirs()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
     c.login()
     success = c.get_changelogs()
     if success:
@@ -425,7 +431,7 @@ if __name__ == "__main__":
     )
     if not success:
         logging.error("crawl incomplete; last check time was not updated")
-        cleanup_tmpdirs()
+        c.cleanup_tmpdirs()
         sys.exit(1)
 
     # test code
