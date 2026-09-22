@@ -75,6 +75,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         self.unit.status = ops.MaintenanceStatus("starting services")
         self.nginx.start()
         self.unit.set_workload_version(self.nginx.get_version())
+        self.unit.set_ports(self.nginx.PORT)
         logger.info(__name__ + ": services started")
         self.unit.status = ops.ActiveStatus()
 
