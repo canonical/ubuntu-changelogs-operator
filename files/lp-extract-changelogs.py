@@ -18,6 +18,7 @@ import urllib.parse
 import urllib.request
 
 import apt_pkg
+import httplib2
 from launchpadlib.credentials import Credentials
 from launchpadlib.launchpad import Launchpad
 
@@ -321,22 +322,41 @@ class LaunchpadChangelogsCrawler:
         return res == 0
 
     def _create_binary_symlinks(self, source, dest):
+        try:
+            binaries = source.binary_packages_versions_components
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionError,
+            httplib2.HttpLib2Error,
+        ) as error:
+            logging.warning(
+                "failed to fetch binaries for %s %s: %s", source.srcname, source.srcversion, error
+            )
+            self.failed += 1
+            return False
         linked = False
-        # Separate symlink allowing for direct binary + version lookup
-        # without requiring the binary component too
-        for binary, version, comp in source.binary_packages_versions_components:
-            lnkdir = f"{self.targetdir}/binary/{poolhash(binary)}/{binary}"
-            lnk = f"{lnkdir}/{version}"
-            if not os.path.exists(lnk):
-                # broken symlink, get rid of them
-                if os.path.islink(lnk):
-                    logging.debug(f"removing broken symlink '{dest}'")
-                    os.remove(lnk)
-                logging.debug(f"create compat symlink '{dest}' -> '{lnk}'")
-                if not os.path.exists(lnkdir):
-                    os.makedirs(lnkdir)
-                os.symlink(os.path.abspath(dest), lnk)
-                linked = True
+        try:
+            # Separate symlink allowing for direct binary + version lookup
+            # without requiring the binary component too
+            for binary, version, comp in binaries:
+                lnkdir = f"{self.targetdir}/binary/{poolhash(binary)}/{binary}"
+                lnk = f"{lnkdir}/{version}"
+                if not os.path.exists(lnk):
+                    # broken symlink, get rid of them
+                    if os.path.islink(lnk):
+                        logging.debug(f"removing broken symlink '{dest}'")
+                        os.remove(lnk)
+                    logging.debug(f"create compat symlink '{dest}' -> '{lnk}'")
+                    if not os.path.exists(lnkdir):
+                        os.makedirs(lnkdir)
+                    os.symlink(os.path.abspath(dest), lnk)
+                    linked = True
+        except OSError as error:
+            logging.error(
+                "failed to create symlinks for %s %s: %s", source.srcname, source.srcversion, error
+            )
+            self.failed += 1
         return linked
 
     def write_last_check_date(self):
