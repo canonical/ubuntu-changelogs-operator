@@ -58,3 +58,11 @@ requires:
     interface: ingress
     limit: 1
     optional: true
+
+storage:
+  cache:
+    type: filesystem
+    description: |
+      A directory to cache LP data and to download and extract source packages
+    location: /var/cache/ubuntu-changelogs
+    minimum-size: 50G
