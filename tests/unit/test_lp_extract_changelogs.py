@@ -8,6 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
+
 # --------------------------------------------------------------------------
 # Fakes for the small part of Launchpad the crawler touches.
 # --------------------------------------------------------------------------
@@ -91,6 +93,20 @@ def stub_dpkg_source(lp, monkeypatch, **files):
         return 0
 
     monkeypatch.setattr(lp, "subprocess", SimpleNamespace(call=write_debian_tree))
+
+
+@pytest.fixture(params=["url", "timeout", "connection", "httplib2", "server", "http"])
+def network_error(request, lp):
+    """Return each network error that a Launchpad request can report."""
+    errors = {
+        "url": lp.urllib.error.URLError("network down"),
+        "timeout": TimeoutError("network timed out"),
+        "connection": ConnectionError("connection lost"),
+        "httplib2": lp.httplib2.HttpLib2Error("network down"),
+        "server": lp.ServerError(SimpleNamespace(status=503, reason="unavailable"), b""),
+        "http": lp.urllib.error.HTTPError("https://launchpad.net", 503, "unavailable", {}, None),
+    }
+    return errors[request.param]
 
 
 # --------------------------------------------------------------------------
@@ -225,7 +241,9 @@ def test_unpublished_source_is_not_downloaded(lp, tmp_path, monkeypatch):
 
 def test_download_failure_is_counted_and_cleans_up(lp, tmp_path):
     """Complete failure means directories are not created and cache is cleaned up"""
-    crawler, _ = make_crawler(lp, tmp_path, [make_source(urls=["file:///missing/hello_1.0-1.dsc"])])
+    crawler, _ = make_crawler(
+        lp, tmp_path, [make_source(urls=["file:///missing/hello_1.0-1.dsc"])]
+    )
 
     assert crawler.get_changelogs() is False
 
@@ -234,10 +252,20 @@ def test_download_failure_is_counted_and_cleans_up(lp, tmp_path):
     assert list(Path(crawler.downloads_cachedir).iterdir()) == []
 
 
-def test_binary_lookup_network_error_is_counted(lp, tmp_path):
-    """Test resilience to network errors, count them as failures"""
+def test_source_file_url_network_error_is_counted(lp, tmp_path, network_error):
+    """Count a failed Launchpad source file URL lookup as a failed package."""
+    source = make_source()
+    source.sourceFileUrls = Mock(side_effect=network_error)
+    crawler, _ = make_crawler(lp, tmp_path, [source])
+
+    assert crawler.get_changelogs() is False
+    assert crawler.failed == 1
+
+
+def test_binary_lookup_network_error_is_counted(lp, tmp_path, network_error):
+    """Count a failed Launchpad binary lookup as a failed package."""
     source = make_source(binaries=[make_binary("hello-bin", "1.0-1")])
-    source.getPublishedBinaries = Mock(side_effect=lp.urllib.error.URLError("network down"))
+    source.getPublishedBinaries = Mock(side_effect=network_error)
     crawler, _ = make_crawler(lp, tmp_path, [source])
     pool = Path(crawler.targetdir) / "pool/main/h/hello/hello_1.0-1"
     pool.mkdir(parents=True)
@@ -245,6 +273,25 @@ def test_binary_lookup_network_error_is_counted(lp, tmp_path):
 
     assert crawler.get_changelogs() is False
 
+    assert crawler.failed == 1
+    assert crawler.symlinked == 0
+
+
+def test_binary_collection_page_failure_is_counted(lp, tmp_path):
+    """Count an error while reading a later page of binaries."""
+
+    def binaries():
+        yield make_binary("hello-bin", "1.0-1")
+        raise TimeoutError("next page timed out")
+
+    source = make_source()
+    source.getPublishedBinaries = binaries
+    crawler, _ = make_crawler(lp, tmp_path, [source])
+    pool = Path(crawler.targetdir) / "pool/main/h/hello/hello_1.0-1"
+    pool.mkdir(parents=True)
+    (pool / "changelog").write_text("already extracted")
+
+    assert crawler.get_changelogs() is False
     assert crawler.failed == 1
     assert crawler.symlinked == 0
 

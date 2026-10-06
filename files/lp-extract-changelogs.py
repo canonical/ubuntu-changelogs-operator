@@ -21,6 +21,7 @@ import apt_pkg
 import httplib2
 from launchpadlib.credentials import Credentials
 from launchpadlib.launchpad import Launchpad
+from lazr.restfulclient.errors import ServerError
 
 LOCK_FILE = "/run/lock/lp-extract-changelogs.lock"
 DEFAULT_CACHE_DIR = "/var/cache/ubuntu-changelogs"
@@ -51,6 +52,17 @@ def poolhash(name):
     else:
         return name[0:1]
 
+# Possible network errors we want to catch
+LP_NETWORK_ERRORS = (
+    urllib.error.URLError,
+    TimeoutError,
+    ConnectionError,
+    httplib2.HttpLib2Error,
+    ServerError,
+)
+
+class LaunchpadNetworkError(Exception):
+    """A Launchpad request failed."""
 
 class LaunchpadSourcePackage:
     """Represents a launchpad source package."""
@@ -66,8 +78,12 @@ class LaunchpadSourcePackage:
         # srip epoch, just like the other changelog extractors
         if ":" in self._srcver:
             self._srcver = self._srcver.split(":")[1]
-        self._srcurls = self._lp_source.sourceFileUrls()
         self._srcomponent = self._lp_source.component_name
+
+        try:
+            self._srcurls = self._lp_source.sourceFileUrls()
+        except LP_NETWORK_ERRORS as error:
+            raise LaunchpadNetworkError("failed to get source file URLs") from error
 
     @property
     def published(self):
@@ -100,14 +116,18 @@ class LaunchpadSourcePackage:
     @property
     def binary_packages_versions_components(self):
         binaries = set()
-        for binary in self._lp_source.getPublishedBinaries():
-            binaries.add(
-                (
-                    binary.binary_package_name,
-                    binary.binary_package_version,
-                    binary.component_name,
+        try:
+            for binary in self._lp_source.getPublishedBinaries():
+                binaries.add(
+                    (
+                        binary.binary_package_name,
+                        binary.binary_package_version,
+                        binary.component_name,
+                    )
                 )
-            )
+        except LP_NETWORK_ERRORS as error:
+            raise LaunchpadNetworkError(f"failed to get published binaries for {self.srcname}, {self.srcversion}") from error
+
         return binaries
 
     def __str__(self):
@@ -220,7 +240,13 @@ class LaunchpadChangelogsCrawler:
             if progress_count % progress_threshold == 0:
                 logging.info(f"processed {progress_count} packages...")
 
-            s = LaunchpadSourcePackage(self._launchpad, source_raw)
+            try:
+                s = LaunchpadSourcePackage(self._launchpad, source_raw)
+            except LaunchpadNetworkError as error:
+                self.failed +=1
+                logging.error("%s failed to create: %s", source_raw.source_package_name, error)
+                continue
+
             logging.debug(f"source package: '{s}'")
 
             if s.pending:
@@ -324,14 +350,9 @@ class LaunchpadChangelogsCrawler:
     def _create_binary_symlinks(self, source, dest):
         try:
             binaries = source.binary_packages_versions_components
-        except (
-            urllib.error.URLError,
-            TimeoutError,
-            ConnectionError,
-            httplib2.HttpLib2Error,
-        ) as error:
+        except LaunchpadNetworkError as error:
             logging.warning(
-                "failed to fetch binaries for %s %s: %s", source.srcname, source.srcversion, error
+                "launchpad network error: %s", error
             )
             self.failed += 1
             return False
