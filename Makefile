@@ -11,7 +11,7 @@ quality:
 	tox run -e lint
 
 .PHONY: pack
-pack: quality
+pack: quality unit
 	charmcraft pack
 
 .PHONY: unit

@@ -178,6 +178,42 @@ def test_write_last_check_date_saves_the_new_time(lp, tmp_path):
 # --------------------------------------------------------------------------
 
 
+def test_empty_crawl_succeeds_without_output(lp, tmp_path):
+    """An empty Launchpad result does not create output or count failures."""
+    crawler, _ = make_crawler(lp, tmp_path, [])
+
+    assert crawler.get_changelogs() is True
+    assert (crawler.skipped, crawler.extracted, crawler.symlinked, crawler.failed) == (0, 0, 0, 0)
+    assert not Path(crawler.targetdir).exists()
+
+
+def test_source_collection_page_failure_stops_the_crawl(lp, tmp_path):
+    """A failure on a later page does not save a new last-check time."""
+    state = tmp_path / "state"
+    state.mkdir()
+    last_check = state / "last_check.txt"
+    last_check.write_text("100000")
+    crawler, archive = make_crawler(lp, tmp_path, [])
+
+    class BrokenCollection:
+        total_size = 2
+
+        def __iter__(self):
+            yield make_source()
+            raise TimeoutError("next page timed out")
+
+    archive.getPublishedSources.return_value = BrokenCollection()
+    pool = Path(crawler.targetdir) / "pool/main/h/hello/hello_1.0-1"
+    pool.mkdir(parents=True)
+    (pool / "changelog").write_text("already extracted")
+
+    with pytest.raises(TimeoutError, match="next page timed out"):
+        crawler.get_changelogs()
+
+    assert crawler.skipped == 1
+    assert last_check.read_text() == "100000"
+
+
 def test_first_crawl_extracts_changelog_files(lp, tmp_path, monkeypatch):
     """Test extraction for a single source package."""
     crawler, _ = make_crawler(
@@ -199,6 +235,74 @@ def test_first_crawl_extracts_changelog_files(lp, tmp_path, monkeypatch):
 
     # Assert download cache has been cleaned up
     assert list(Path(crawler.downloads_cachedir).iterdir()) == []
+
+
+def test_two_crawls_extract_multiple_packages_and_create_binary_links(lp, tmp_path, monkeypatch):
+    """Extract both sources, then create their binary links on the next crawl.
+
+    During the first pass, each source gets its own pool path and changelog.
+    During the second pass, the symlinks under the 'binary' directory are created.
+    """
+    sources = [
+        make_source(
+            urls=[source_file(tmp_path, "hello_1.0-1.dsc")],
+            binaries=[make_binary("hello-bin", "1.0-1")],
+        ),
+        make_source(
+            name="libworld",
+            version="2.0-1",
+            component="universe",
+            urls=[source_file(tmp_path, "libworld_2.0-1.dsc")],
+            binaries=[make_binary("libworld-bin", "2.0-1")],
+        ),
+    ]
+    crawler, _ = make_crawler(lp, tmp_path, sources)
+
+    def write_debian_tree(argv, stdout=None):
+        debian = Path(argv[-1]) / "debian"
+        debian.mkdir(parents=True)
+        (debian / "changelog").write_text(Path(argv[-2]).stem)
+        return 0
+
+    monkeypatch.setattr(lp.subprocess, "call", write_debian_tree)
+
+    assert crawler.get_changelogs() is True
+
+    hello_pool = Path(crawler.targetdir) / "pool/main/h/hello/hello_1.0-1"
+    world_pool = Path(crawler.targetdir) / "pool/universe/libw/libworld/libworld_2.0-1"
+    hello_link = Path(crawler.targetdir) / "binary/h/hello-bin/1.0-1"
+    world_link = Path(crawler.targetdir) / "binary/libw/libworld-bin/2.0-1"
+    assert (hello_pool / "changelog").read_text() == "hello_1.0-1"
+    assert (world_pool / "changelog").read_text() == "libworld_2.0-1"
+    assert crawler.extracted == 2
+    assert crawler.failed == 0
+    assert not hello_link.exists()
+    assert not world_link.exists()
+
+    assert crawler.get_changelogs() is True
+
+    assert crawler.skipped == 2
+    assert crawler.symlinked == 2
+    assert hello_link.is_symlink()
+    assert hello_link.resolve() == hello_pool.resolve()
+    assert world_link.is_symlink()
+    assert world_link.resolve() == world_pool.resolve()
+
+
+def test_changelog_without_optional_files_is_extracted(lp, tmp_path, monkeypatch):
+    """Copyright and NEWS.Debian are not required for extraction."""
+    crawler, _ = make_crawler(
+        lp, tmp_path, [make_source(urls=[source_file(tmp_path, "hello_1.0-1.dsc")])]
+    )
+    stub_dpkg_source(lp, monkeypatch, changelog="hello changelog")
+
+    assert crawler.get_changelogs() is True
+
+    pool = Path(crawler.targetdir) / "pool/main/h/hello/hello_1.0-1"
+    assert (pool / "changelog").read_text() == "hello changelog"
+    assert sorted(path.name for path in pool.iterdir()) == ["changelog"]
+    assert crawler.extracted == 1
+    assert crawler.failed == 0
 
 
 def test_existing_changelog_is_skipped_and_binary_symlink_is_created(lp, tmp_path):
@@ -223,9 +327,31 @@ def test_existing_changelog_is_skipped_and_binary_symlink_is_created(lp, tmp_pat
     assert crawler.skipped == 1
     assert crawler.extracted == 0
     assert crawler.symlinked == 1
+    assert (pool / "changelog").read_text() == "already extracted"
     link = Path(crawler.targetdir) / "binary/h/hello-bin/1.0-1"
     assert link.is_symlink()
     assert link.resolve() == pool.resolve()
+
+
+def test_broken_binary_link_is_replaced(lp, tmp_path):
+    """A broken binary link is replaced with a link to the source directory."""
+    crawler, _ = make_crawler(
+        lp, tmp_path, [make_source(binaries=[make_binary("hello-bin", "1.0-1")])]
+    )
+    pool = Path(crawler.targetdir) / "pool/main/h/hello/hello_1.0-1"
+    pool.mkdir(parents=True)
+    (pool / "changelog").write_text("already extracted")
+    link = Path(crawler.targetdir) / "binary/h/hello-bin/1.0-1"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(tmp_path / "missing")
+
+    assert crawler.get_changelogs() is True
+
+    assert link.is_symlink()
+    assert link.resolve() == pool.resolve()
+    assert crawler.skipped == 1
+    assert crawler.symlinked == 1
+    assert crawler.failed == 0
 
 
 def test_unpublished_source_is_not_downloaded(lp, tmp_path, monkeypatch):
@@ -253,6 +379,21 @@ def test_download_failure_is_counted_and_cleans_up(lp, tmp_path):
     assert list(Path(crawler.downloads_cachedir).iterdir()) == []
 
 
+def test_unpack_failure_is_counted_and_cleans_up(lp, tmp_path, monkeypatch):
+    """An unpack failure leaves no output or temporary files."""
+    crawler, _ = make_crawler(
+        lp, tmp_path, [make_source(urls=[source_file(tmp_path, "hello_1.0-1.dsc")])]
+    )
+    monkeypatch.setattr(lp.subprocess, "call", Mock(return_value=1))
+
+    assert crawler.get_changelogs() is False
+
+    assert crawler.failed == 1
+    assert crawler.extracted == 0
+    assert not Path(crawler.targetdir).exists()
+    assert list(Path(crawler.downloads_cachedir).iterdir()) == []
+
+
 def test_source_file_url_network_error_is_counted(lp, tmp_path, network_error):
     """Count a failed Launchpad source file URL lookup as a failed package."""
     source = make_source()
@@ -260,6 +401,22 @@ def test_source_file_url_network_error_is_counted(lp, tmp_path, network_error):
     crawler, _ = make_crawler(lp, tmp_path, [source])
 
     assert crawler.get_changelogs() is False
+    assert crawler.failed == 1
+
+
+def test_crawl_continues_after_source_url_failure(lp, tmp_path, monkeypatch):
+    """Extract the next source but report the incomplete crawl."""
+    failed_source = make_source(name="broken")
+    failed_source.sourceFileUrls = Mock(side_effect=TimeoutError("network timed out"))
+    good_source = make_source(urls=[source_file(tmp_path, "hello_1.0-1.dsc")])
+    crawler, _ = make_crawler(lp, tmp_path, [failed_source, good_source])
+    stub_dpkg_source(lp, monkeypatch)
+
+    assert crawler.get_changelogs() is False
+
+    pool = Path(crawler.targetdir) / "pool/main/h/hello/hello_1.0-1"
+    assert (pool / "changelog").exists()
+    assert crawler.extracted == 1
     assert crawler.failed == 1
 
 
