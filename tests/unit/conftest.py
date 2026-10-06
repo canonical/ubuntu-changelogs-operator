@@ -34,7 +34,9 @@ def lp(monkeypatch):
     _stub(monkeypatch, "launchpadlib")
     _stub(monkeypatch, "launchpadlib.credentials", Credentials=Mock)
     _stub(monkeypatch, "launchpadlib.launchpad", Launchpad=Mock)
-    _stub(monkeypatch, "lazr.restfulclient.errors", ServerError=type("ServerError", (Exception,), {}))
+    _stub(
+        monkeypatch, "lazr.restfulclient.errors", ServerError=type("ServerError", (Exception,), {})
+    )
 
     spec = importlib.util.spec_from_file_location("lp_extract_changelogs", SCRIPT)
     assert spec is not None

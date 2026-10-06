@@ -179,7 +179,7 @@ def test_write_last_check_date_saves_the_new_time(lp, tmp_path):
 
 
 def test_first_crawl_extracts_changelog_files(lp, tmp_path, monkeypatch):
-    """Test extraction for one source package"""
+    """Test extraction for a single source package."""
     crawler, _ = make_crawler(
         lp,
         tmp_path,
@@ -202,9 +202,10 @@ def test_first_crawl_extracts_changelog_files(lp, tmp_path, monkeypatch):
 
 
 def test_existing_changelog_is_skipped_and_binary_symlink_is_created(lp, tmp_path):
-    """
-    Test that:
-    - existing changelogs are not extracted again
+    """Test script behaviour when a changelog already exists.
+
+    Tests that:
+    - existing changelogs are not extracted a second time
     - symlinks under the 'binary' directory are created the second time
       a package is found on launchpad
     """
@@ -228,7 +229,7 @@ def test_existing_changelog_is_skipped_and_binary_symlink_is_created(lp, tmp_pat
 
 
 def test_unpublished_source_is_not_downloaded(lp, tmp_path, monkeypatch):
-    """Don't fetch a package that is marked as unpublished on Launchpad"""
+    """Don't fetch a package that is marked as unpublished on Launchpad."""
     crawler, _ = make_crawler(lp, tmp_path, [make_source(published=False)])
     fetch = Mock(return_value=True)
     monkeypatch.setattr(crawler, "_fetch_source", fetch)
@@ -240,7 +241,7 @@ def test_unpublished_source_is_not_downloaded(lp, tmp_path, monkeypatch):
 
 
 def test_download_failure_is_counted_and_cleans_up(lp, tmp_path):
-    """Complete failure means directories are not created and cache is cleaned up"""
+    """Complete failure means directories are not created and cache is cleaned up."""
     crawler, _ = make_crawler(
         lp, tmp_path, [make_source(urls=["file:///missing/hello_1.0-1.dsc"])]
     )
@@ -297,7 +298,7 @@ def test_binary_collection_page_failure_is_counted(lp, tmp_path):
 
 
 def test_symlink_creation_error_is_counted(lp, tmp_path):
-    """Failure to create symlinks counts as a generic failure"""
+    """Failure to create symlinks counts as a generic failure."""
     crawler, _ = make_crawler(
         lp, tmp_path, [make_source(binaries=[make_binary("hello-bin", "1.0-1")])]
     )

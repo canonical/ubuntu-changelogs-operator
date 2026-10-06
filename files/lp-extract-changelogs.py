@@ -52,6 +52,7 @@ def poolhash(name):
     else:
         return name[0:1]
 
+
 # Possible network errors we want to catch
 LP_NETWORK_ERRORS = (
     urllib.error.URLError,
@@ -61,8 +62,10 @@ LP_NETWORK_ERRORS = (
     ServerError,
 )
 
+
 class LaunchpadNetworkError(Exception):
     """A Launchpad request failed."""
+
 
 class LaunchpadSourcePackage:
     """Represents a launchpad source package."""
@@ -126,7 +129,9 @@ class LaunchpadSourcePackage:
                     )
                 )
         except LP_NETWORK_ERRORS as error:
-            raise LaunchpadNetworkError(f"failed to get published binaries for {self.srcname}, {self.srcversion}") from error
+            raise LaunchpadNetworkError(
+                f"failed to get published binaries for {self.srcname}, {self.srcversion}"
+            ) from error
 
         return binaries
 
@@ -243,7 +248,7 @@ class LaunchpadChangelogsCrawler:
             try:
                 s = LaunchpadSourcePackage(self._launchpad, source_raw)
             except LaunchpadNetworkError as error:
-                self.failed +=1
+                self.failed += 1
                 logging.error("%s failed to create: %s", source_raw.source_package_name, error)
                 continue
 
@@ -351,9 +356,7 @@ class LaunchpadChangelogsCrawler:
         try:
             binaries = source.binary_packages_versions_components
         except LaunchpadNetworkError as error:
-            logging.warning(
-                "launchpad network error: %s", error
-            )
+            logging.warning("launchpad network error: %s", error)
             self.failed += 1
             return False
         linked = False
