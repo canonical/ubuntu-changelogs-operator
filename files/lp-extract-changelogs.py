@@ -212,7 +212,7 @@ class LaunchpadChangelogsCrawler:
 
     def _get_changelogs_from_source_package_history_collection(self, changed):
         logging.info(f"packages to check: {changed.total_size}")
-        progress_threshold = min(int(changed.total_size / 10), 100)
+        progress_threshold = min(max(int(changed.total_size / 10), 1), 100)
         progress_count = 0
         start_time = time.time()
         for source_raw in changed:
