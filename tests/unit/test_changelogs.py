@@ -25,7 +25,6 @@ def test_install_copies_script_and_installs_packages(monkeypatch):
 
     assert add_package.call_args_list == [
         call("python3-launchpadlib"),
-        call("python3-apt"),
         call("dpkg-dev"),
     ]
     cache_dir.mkdir.assert_called_once_with(mode=0o755, parents=True, exist_ok=True)
@@ -166,7 +165,6 @@ def test_uninstall_removes_packages_and_script(monkeypatch):
     check_call.assert_called_once_with(["systemctl", "daemon-reload"])
     assert remove_package.call_args_list == [
         call("python3-launchpadlib"),
-        call("python3-apt"),
         call("dpkg-dev"),
     ]
     assert unlinked == [

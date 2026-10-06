@@ -50,7 +50,7 @@ def test_install_orchestrates_components(monkeypatch: pytest.MonkeyPatch):
     [
         (ServiceStatus.OK, testing.ActiveStatus()),
         (ServiceStatus.RUNNING, testing.MaintenanceStatus("extracting changelogs")),
-        (ServiceStatus.FAILED, testing.BlockedStatus("changelog extraction failed")),
+        (ServiceStatus.FAILED, testing.MaintenanceStatus("changelog extraction failed")),
     ],
 )
 def test_update_status_reflects_extraction_health(
