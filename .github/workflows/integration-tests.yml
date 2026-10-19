@@ -1,0 +1,57 @@
+---
+name: Integration tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Aggressive cleanup to regain disk space
+        run: |
+          # Remove Java (JDKs)
+          sudo rm -rf /usr/lib/jvm
+          # Remove .NET SDKs
+          sudo rm -rf /usr/share/dotnet
+          # Remove Swift toolchain
+          sudo rm -rf /usr/share/swift
+          # Remove Haskell (GHC)
+          sudo rm -rf /usr/local/.ghcup
+          # Remove Julia
+          sudo rm -rf /usr/local/julia*
+          # Remove Android SDKs
+          sudo rm -rf /usr/local/lib/android
+          # Remove Chromium (optional if not using for browser tests)
+          sudo rm -rf /usr/local/share/chromium
+          # Remove Microsoft/Edge and Google Chrome builds
+          sudo rm -rf /opt/microsoft /opt/google
+
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Setup LXD
+        uses: canonical/setup-lxd@a3c85fc6fb7fff43fcfeae87659e41a8f635b7dd
+
+      - name: Install charmcraft and concierge
+        run: |
+          sudo snap install charmcraft --classic
+          sudo snap install --classic concierge
+
+      - name: Install tox
+        run: uv tool install tox --with tox-uv
+
+      - name: Prepare Juju
+        run: sudo concierge prepare -p machine
+
+      - name: Pack charm
+        run: charmcraft pack -v
+
+      - name: Run integration tests
+        run: tox run -e integration
