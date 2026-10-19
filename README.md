@@ -24,12 +24,11 @@ into standalone modules under `src/`:
 
 A Makefile wraps the common `tox`, `charmcraft`, and `juju` commands.
 
-Test, build, deploy, and smoke-test:
+Test, build, deploy:
 
 ```shell
 make pack     # build the charm
 make deploy   # deploy to the current Juju model
-make smoke    # verify the workload responds
 ```
 
 See [TESTING.md](TESTING.md) for the full development and test loop.

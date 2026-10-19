@@ -76,9 +76,3 @@ at a specific artifact:
 ```shell
 CHARM_PATH=./ubuntu-changelogs-operator_amd64.charm tox run -e integration
 ```
-
-## Manual smoke check after deploy
-
-```shell
-./tests/smoke.sh
-```

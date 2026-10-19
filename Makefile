@@ -53,7 +53,3 @@ remove:
 .PHONY: logs
 logs:
 	juju debug-log --include $(NAME)
-
-.PHONY: smoke
-smoke:
-	./tests/smoke.sh $(NAME)
