@@ -1,16 +1,10 @@
-# Testing runbook
+# Testing
 
-Commands for linting, type-checking, and testing the charm. All commands run
-from the repository root. This project uses [`tox`](https://tox.wiki/) with
-[`uv`](https://docs.astral.sh/uv/) to manage environments.
+All commands run from the repository root. The project uses `tox` with `uv`.
+You need `uv`, `tox`, `charmcraft`, and Juju on `PATH`. `uv` installs the
+Python dependencies. `tox` creates the test environments.
 
-## Prerequisites
-
-- `uv` and `tox` on `PATH`.
-- `charmcraft` and a configured `juju` (with a machine cloud, e.g. LXD) for
-  building the charm and running integration tests.
-
-Refresh the lockfile after changing dependencies:
+After you change a dependency, update the lock file:
 
 ```shell
 uv lock
@@ -18,29 +12,14 @@ uv lock
 
 ## Environments
 
-| Environment    | Purpose                                          |
-| -------------- | ------------------------------------------------ |
-| `format`       | Auto-format and auto-fix code with ruff.         |
-| `lint`         | codespell, ruff checks, and pyright type checks. |
-| `unit`         | Unit tests with coverage.                        |
-| `integration`  | Jubilant integration tests against a live model. |
+| Environment | What it does |
+| --- | --- |
+| `format` | Formats the code and applies safe ruff fixes. |
+| `lint` | Runs codespell, ruff checks, and pyright. |
+| `unit` | Runs the unit tests with coverage for `src/` and `files/`. |
+| `integration` | Tests the charm in a temporary Juju model. |
 
-## Format the code
-
-```shell
-tox run -e format
-```
-
-## Lint and type-check
-
-Runs codespell, `ruff check`, `ruff format --check`, and `pyright`:
-
-```shell
-tox run -e lint
-```
-
-Note: `pyright` downloads a Node.js runtime on first run and needs network
-access.
+`tox` without an environment runs `format`, `lint`, and `unit`.
 
 ## Unit tests
 
@@ -48,31 +27,45 @@ access.
 tox run -e unit
 ```
 
-Run a single test:
+The command runs pytest with coverage and prints a report. To run one test file
+or one test:
 
 ```shell
+tox run -e unit -- tests/unit/test_changelogs.py
 tox run -e unit -- tests/unit/test_charm.py::test_start
-```
-
-Run everything except integration (format, lint, unit):
-
-```shell
-tox
 ```
 
 ## Integration tests
 
-Integration tests deploy the charm to a temporary Juju model using Jubilant.
-Build the charm first, then run the tests.
+The integration tests use Jubilant. They deploy the charm to a temporary Juju
+model in a local Multipass virtual machine, wait until the unit is active, and
+test the web server, the meta-release files, the actions, the timer, and the
+cache storage.
+
+You need Multipass on the host. The Makefile prepares the machine and runs the
+tests there:
 
 ```shell
-charmcraft pack
-tox run -e integration
+make setup-integration-tests
+multipass start juju-sandbox-ubuntu-changelogs
+make integration-tests
+make teardown-integration-tests
 ```
 
-By default the tests look for a `*.charm` file in the repository root. To point
-at a specific artifact:
+`make setup-integration-tests` creates a virtual machine named
+`juju-sandbox-ubuntu-changelogs`, installs Juju and tox, stops the machine, and
+adds the repository mount for the next boot.
 
-```shell
-CHARM_PATH=./ubuntu-changelogs-operator_amd64.charm tox run -e integration
-```
+`multipass start ...` starts the virtual machine.
+
+`make integration-tests` builds the charm on the host and runs the tests in the
+virtual machine. The tests use the `.charm` file in the repository root.
+
+`make teardown-integration-tests` deletes the virtual machine.
+
+Some tests take time:
+
+- The deploy test can wait up to 15 minutes.
+- The meta-release tests can wait up to 5 minutes for a file update.
+- The last test starts a real changelog extraction. It does not wait for the
+  extraction to end.

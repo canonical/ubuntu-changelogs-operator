@@ -1,39 +1,149 @@
 # Ubuntu Changelogs Operator
 
-Charmhub package name: ubuntu-changelogs-operator
-More information: https://charmhub.io/ubuntu-changelogs-operator
+Ubuntu Changelogs Operator is a [charm](https://juju.is/charms-architecture) for
+deploying https://changelogs.ubuntu.com/. The server publishes:
+- Ubuntu release data from the Launchpad `meta-release` repository.
+- Package changelogs and copyright files from the Launchpad archive.
 
-A machine charm that runs the web server behind https://changelogs.ubuntu.com/.
-It serves Ubuntu meta-release information and package changelogs.
+| Item | Value |
+| --- | --- |
+| Charm name | `ubuntu-changelogs` |
+| Base | Ubuntu 26.04 |
+| Architectures | amd64, arm64 |
+| Minimum Juju version | 3.6 |
 
-Source code: https://github.com/ubuntu/ubuntu-changelogs-operator/issues
+## What the charm does
 
-## Overview
+The charm installs nginx and serves files from `/var/www/changelogs.ubuntu.com`
+on port 80.
 
-The charm installs and manages an nginx web server and populates its serving
-directory (`/var/www/changelogs.ubuntu.com`) from Launchpad. The workload logic is split
-into standalone modules under `src/`:
+- On install, the charm installs nginx, git, `python3-launchpadlib`, and
+  `dpkg-dev`. It also writes the nginx configuration.
+- On config change, the charm copies `robots.txt` and clones the
+  `meta-release` repository at `meta_release_ref`.
+- Every 6 hours, a timer runs the changelog extractor. The extractor gets new
+  source packages from Launchpad and writes `changelog`, `NEWS.Debian`, and
+  `copyright` files under `/changelogs/`.
+- When Juju checks the unit status (usually every 5 minutes), the charm reports
+  if the extractor is running or if the last run failed.
 
-- `nginx.py` — install, configure, and manage the nginx service.
-- `meta_release.py` — clone and publish the meta-release repository.
-- `changelogs.py` — extract package changelogs from Launchpad
+The application needs:
 
-`charm.py` orchestrates these modules in response to Juju events.
+- Network access to Launchpad and the Ubuntu package archive.
+- `cache` storage of at least 50 GB.
 
-## Usage
+The application uses these directories:
 
-A Makefile wraps the common `tox`, `charmcraft`, and `juju` commands.
+| Path | Contents |
+| --- | --- |
+| `/var/www/changelogs.ubuntu.com` | Served files. |
+| `/var/cache/ubuntu-changelogs` | Launchpad API cache and temporary downloads. |
+| `/var/lib/ubuntu-changelogs` | Extractor state, including the last check time. |
 
-Test, build, deploy:
+## Source layout
+
+| Path | Purpose |
+| --- | --- |
+| `src/charm.py` | Handles Juju events and unit status. |
+| `src/nginx.py` | Installs, configures, and controls nginx. |
+| `src/meta_release.py` | Clones the meta-release repository and publishes its files. |
+| `src/changelogs.py` | Manages the timer, the service, and the extractor script. |
+| `files/lp-extract-changelogs.py` | Gets package files from Launchpad. |
+| `files/nginx.conf` | nginx site configuration. |
+| `files/robots.txt` | Crawler rules, served at `/robots.txt`. |
+| `files/lp-extract-changelogs.service` | Runs the extractor. |
+| `files/lp-extract-changelogs.timer` | Starts the extractor every 6 hours. |
+
+## Deploy locally or on a VM
+
+You need a Juju controller on a cloud that supports machine charms, for example LXD.
+You also need `charmcraft` and `tox`.
 
 ```shell
-make pack     # build the charm
-make deploy   # deploy to the current Juju model
+make pack
+juju deploy ./ubuntu-changelogs_amd64.charm --storage cache=50G
+juju expose ubuntu-changelogs
 ```
 
-See [TESTING.md](TESTING.md) for the full development and test loop.
+`make pack` runs the formatter, the linter, and the unit tests before it builds
+the charm. To build without these checks, run `charmcraft pack`. The examples
+use the amd64 file. On arm64, use `ubuntu-changelogs_arm64.charm`.
 
-## Other resources
+The first changelog extraction can take hours. During this time, the unit
+status is `maintenance: extracting changelogs`. A unit with `active` status has
+started nginx, but its data can be incomplete. See
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md) to check the data.
 
-- [Contributing](CONTRIBUTING.md)
-- [Juju documentation](https://documentation.ubuntu.com/juju/3.6/howto/manage-charms/)
+### Optional ingress
+
+An ingress is a proxy that gives the application a public address. To put the
+server behind an ingress, connect an application that supports the `ingress`
+interface:
+
+```shell
+juju integrate ubuntu-changelogs:ingress <ingress-application>
+```
+
+Set `hostname` before you connect the ingress. The charm sends the host name to
+the ingress when the relation becomes ready. Without an ingress, clients must
+connect to port 80 of the unit.
+
+## Configuration
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `hostname` | `changelogs.ubuntu.com` | Host name to give to the ingress. |
+| `meta_release_ref` | `main` | Git branch, tag, or commit to publish from the `meta-release` repository. |
+
+A change to `meta_release_ref` clones the repository again.
+
+## Actions
+
+| Action | Description |
+| --- | --- |
+| `pull-changelogs` | Starts the extractor. It does nothing if an extraction already runs. The action returns before extraction ends. |
+| `pull-meta-release` | Clones and publishes the meta-release files again. |
+
+```shell
+juju run ubuntu-changelogs/0 pull-changelogs
+juju run ubuntu-changelogs/0 pull-meta-release
+```
+
+## Storage
+
+The charm requires the `cache` storage. Juju mounts it at
+`/var/cache/ubuntu-changelogs`. The extractor uses it for the Launchpad API
+cache and for temporary source package downloads. The minimum size is 50 GB.
+
+## Check the application
+
+```shell
+juju status ubuntu-changelogs
+juju debug-log --include ubuntu-changelogs
+```
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common problems and log
+locations.
+
+## Development
+
+| Command | Purpose |
+| --- | --- |
+| `make init` | Update the lock file. |
+| `make quality` | Format and lint the code. |
+| `make unit-tests` | Run the unit tests. |
+| `make pack` | Run the checks and build the charm. |
+| `make setup-integration-tests` | Setup a Multipass VM for the integration tests. |
+| `make integration-tests` | Run the integration tests in the local Multipass VM. |
+| `make deploy` | Deploy the local charm to the current Juju model. |
+| `make logs` | Follow the Juju log for this application. |
+
+The integration tests need a prepared Multipass VM. See [TESTING.md](TESTING.md)
+for the setup and teardown commands.
+
+## Links
+
+- Source: https://github.com/ubuntu/ubuntu-changelogs-operator
+- Issues: https://github.com/ubuntu/ubuntu-changelogs-operator/issues
+- Juju documentation:
+  https://documentation.ubuntu.com/juju/3.6/howto/manage-charms/
