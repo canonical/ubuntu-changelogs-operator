@@ -89,3 +89,35 @@ def test_pull_changelogs_action_fails_on_error(monkeypatch: pytest.MonkeyPatch):
         ctx.run(ctx.on.action("pull-changelogs"), testing.State())
 
     assert "failed to trigger changelog extraction: nope" in exc_info.value.message
+
+
+def test_pull_meta_release_action_pulls_configured_ref(monkeypatch: pytest.MonkeyPatch):
+    """Test that the pull-meta-release action pulls the configured ref."""
+    calls = []
+    monkeypatch.setattr(
+        "meta_release.MetaRelease.pull_updates", lambda self, ref: calls.append(ref)
+    )
+
+    ctx = testing.Context(UbuntuChangelogsOperatorCharm)
+    ctx.run(
+        ctx.on.action("pull-meta-release"),
+        testing.State(config={"meta_release_ref": "HEAD"}),
+    )
+
+    assert calls == ["HEAD"]
+    assert ctx.action_results == {"result": "meta-release updated"}
+
+
+def test_pull_meta_release_action_fails_on_error(monkeypatch: pytest.MonkeyPatch):
+    """Test that the pull-meta-release action is marked failed when the pull fails."""
+
+    def boom(self, ref):
+        raise RuntimeError("nope")
+
+    monkeypatch.setattr("meta_release.MetaRelease.pull_updates", boom)
+
+    ctx = testing.Context(UbuntuChangelogsOperatorCharm)
+    with pytest.raises(testing.ActionFailed) as exc_info:
+        ctx.run(ctx.on.action("pull-meta-release"), testing.State())
+
+    assert "failed to pull meta-release: nope" in exc_info.value.message

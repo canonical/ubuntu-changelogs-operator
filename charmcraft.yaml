@@ -52,6 +52,9 @@ actions:
   pull-changelogs:
     description: Trigger the changelog extractor if it's not already running.
     additionalProperties: false
+  pull-meta-release:
+    description: Clone the meta-release repository again and republish its files.
+    additionalProperties: false
 
 requires:
   ingress:

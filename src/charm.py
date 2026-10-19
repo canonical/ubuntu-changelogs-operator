@@ -51,6 +51,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         framework.observe(self.on.stop, self._on_stop)
         framework.observe(self.on.remove, self._on_remove)
         framework.observe(self.on.pull_changelogs_action, self._on_pull_changelogs)
+        framework.observe(self.on.pull_meta_release_action, self._on_pull_meta_release)
         framework.observe(self.ingress.on.ready, self._on_ingress_ready)
 
     def _on_install(self, event: ops.InstallEvent):
@@ -141,6 +142,17 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         # We set the unit on a maintenance status, which will be cleaned
         # up by the on-update-status hook.
         self.unit.status = ops.MaintenanceStatus("extracting changelogs")
+
+    def _on_pull_meta_release(self, event: ops.ActionEvent) -> None:
+        """Handle the pull-meta-release action."""
+        ref = self.load_config(CharmConfig).meta_release_ref
+        try:
+            self.meta_release.pull_updates(ref)
+        except Exception as e:
+            logger.exception(__name__ + ": pull-meta-release action failed")
+            event.fail(f"failed to pull meta-release: {e}")
+            return
+        event.set_results({"result": "meta-release updated"})
 
     def _on_ingress_ready(self, event: IngressPerAppReadyEvent):
         """Handle the ingress connection."""
