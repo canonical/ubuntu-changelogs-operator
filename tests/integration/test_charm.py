@@ -100,6 +100,16 @@ def test_extractor_timer_is_enabled(juju: jubilant.Juju):
     assert "OnUnitActiveSec=6h" in run(juju, "systemctl cat lp-extract-changelogs.timer")
 
 
+def test_extractor_runs_as_unprivileged_user(juju: jubilant.Juju):
+    """Run the extractor as a dedicated user that owns its writable directories."""
+    service = run(juju, "systemctl show -p User --value lp-extract-changelogs.service")
+    assert service == "ubuntu-changelogs"
+    published = "/var/www/changelogs.ubuntu.com/changelogs"
+    assert run(juju, f"stat -c %U {published}") == "ubuntu-changelogs"
+    assert run(juju, "stat -c %U /var/cache/ubuntu-changelogs") == "ubuntu-changelogs"
+    assert run(juju, "stat -c %a /var/lib/ubuntu-changelogs") == "700"
+
+
 def test_cache_storage_is_mounted(juju: jubilant.Juju):
     """Mount the cache storage at the configured path."""
     assert "is a mountpoint" in run(juju, "mountpoint /var/cache/ubuntu-changelogs")

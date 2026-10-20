@@ -1,6 +1,7 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
 
+from pathlib import Path
 from unittest.mock import Mock, call
 
 import pytest
@@ -15,20 +16,26 @@ def test_install_copies_script_and_installs_packages(monkeypatch):
     monkeypatch.setattr("changelogs.shutil.copy2", copy2)
     check_call = Mock()
     monkeypatch.setattr("changelogs.subprocess.check_call", check_call)
-    cache_dir = Mock()
-    monkeypatch.setattr(Changelogs, "CACHE_DIR", cache_dir)
-    state_dir = Mock()
-    monkeypatch.setattr(Changelogs, "STATE_DIR", state_dir)
 
-    changelogs = Changelogs(Mock())
+    create_user = Mock()
+    monkeypatch.setattr("utils.create_user", create_user)
+    create_dir = Mock()
+    monkeypatch.setattr("utils.create_dir", create_dir)
+    destination = Path("/var/www/changelogs.ubuntu.com")
+
+    changelogs = Changelogs(destination)
     changelogs.install()
 
     assert add_package.call_args_list == [
         call("python3-launchpadlib"),
         call("dpkg-dev"),
     ]
-    cache_dir.mkdir.assert_called_once_with(mode=0o755, parents=True, exist_ok=True)
-    state_dir.mkdir.assert_called_once_with(mode=0o700, parents=True, exist_ok=True)
+    create_user.assert_called_once_with(changelogs.USER)
+    assert create_dir.call_args_list == [
+        call(Changelogs.CACHE_DIR, 0o755, changelogs.USER, changelogs.GROUP),
+        call(Changelogs.STATE_DIR, 0o700, changelogs.USER, changelogs.GROUP),
+        call(destination / Changelogs.PUBLISH_DIR, 0o755, changelogs.USER, changelogs.GROUP),
+    ]
     assert copy2.call_args_list == [
         call(changelogs.SCRIPT_SRC, changelogs.SCRIPT_DEST),
         call(changelogs.SERVICE_SRC, changelogs.SYSTEMD_DIR / changelogs.SERVICE_SRC.name),

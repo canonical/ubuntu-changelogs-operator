@@ -11,6 +11,8 @@ from pathlib import Path
 
 from charmlibs import apt
 
+import utils
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,8 +35,11 @@ class Changelogs:
     SYSTEMD_DIR = Path("/etc/systemd/system")
     SERVICE_UNIT = "lp-extract-changelogs.service"
     TIMER_UNIT = "lp-extract-changelogs.timer"
-    CACHE_DIR = Path("/var/cache/ubuntu-changelogs/lp-cache")
+    CACHE_DIR = Path("/var/cache/ubuntu-changelogs")
     STATE_DIR = Path("/var/lib/ubuntu-changelogs")
+    PUBLISH_DIR = "changelogs"
+    USER = "ubuntu-changelogs"
+    GROUP = "ubuntu-changelogs"
     PACKAGES = ["python3-launchpadlib", "dpkg-dev"]
 
     def __init__(self, destination: Path):
@@ -44,8 +49,14 @@ class Changelogs:
         """Install the tools required to retrieve package changelogs."""
         for package in self.PACKAGES:
             apt.add_package(package)
-        self.CACHE_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
-        self.STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+        utils.create_user(self.USER)
+        utils.create_dir(self.CACHE_DIR, 0o755, self.USER, self.GROUP)  # u=rwx,go=rx
+        utils.create_dir(self.STATE_DIR, 0o700, self.USER, self.GROUP)  # u=rwx,go=
+        utils.create_dir(
+            self.destination / self.PUBLISH_DIR, 0o755, self.USER, self.GROUP
+        )  # u=rwx,go=rx
+
         shutil.copy2(self.SCRIPT_SRC, self.SCRIPT_DEST)
         subprocess.check_call(["chmod", "a+rwx,g-w,o-w", str(self.SCRIPT_DEST)])
         shutil.copy2(self.SERVICE_SRC, self.SYSTEMD_DIR / self.SERVICE_SRC.name)

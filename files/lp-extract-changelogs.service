@@ -5,6 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+User=ubuntu-changelogs
+Group=ubuntu-changelogs
+UMask=0022
+NoNewPrivileges=yes
 ExecStart=/usr/bin/python3 /usr/local/bin/lp-extract-changelogs \
     --cache-dir /var/cache/ubuntu-changelogs \
     --state-dir /var/lib/ubuntu-changelogs \
