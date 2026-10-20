@@ -196,7 +196,14 @@ class LaunchpadChangelogsCrawler:
         #    self.login_with_token(self.credentials_file)
 
         service = SERVICE_ROOT
-        self._launchpad = Launchpad.login_anonymously(self.SERVICE_NAME, service, self.lp_cachedir)
+
+        try:
+            self._launchpad = Launchpad.login_anonymously(
+                self.SERVICE_NAME, service, self.lp_cachedir
+            )
+            return True, ""
+        except Exception as error:
+            return False, type(error)
 
     def login_interactive(self):
         service = SERVICE_ROOT
@@ -461,7 +468,11 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGTERM, handle_sigterm)
 
-    c.login()
+    success, err = c.login()
+    if not success:
+        logging.info("failed to login, aborting. Error: %s ", err)
+        sys.exit(1)
+
     success = c.get_changelogs()
     if success:
         c.write_last_check_date()
@@ -477,8 +488,3 @@ if __name__ == "__main__":
         logging.error("crawl incomplete; last check time was not updated")
         c.cleanup_tmpdirs()
         sys.exit(1)
-
-    # test code
-    # ubuntu = c._launchpad.distributions[DISTRIBUTION]
-    # archive = ubuntu.main_archive
-    # c.get_changelogs_from_source_packages(archive, ["acct"])

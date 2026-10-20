@@ -145,11 +145,36 @@ def test_parse_arguments_accepts_overrides(lp):
 
 
 # --------------------------------------------------------------------------
+# Login.
+# --------------------------------------------------------------------------
+
+
+def test_login_succeeds_anonymously(lp, tmp_path):
+    """Anonymous login reports success and stores the Launchpad handle."""
+    crawler, _ = make_crawler(lp, tmp_path, [])
+
+    assert crawler.login() == (True, "")
+    assert crawler._launchpad is lp.Launchpad.login_anonymously.return_value
+    lp.Launchpad.login_anonymously.assert_called_once_with(
+        crawler.SERVICE_NAME, lp.SERVICE_ROOT, crawler.lp_cachedir
+    )
+
+
+def test_login_failure_returns_the_error_type(lp, tmp_path):
+    """A login error is returned as its type, not raised."""
+    crawler, _ = make_crawler(lp, tmp_path, [])
+    lp.Launchpad.login_anonymously.side_effect = ConnectionError("network down")
+
+    assert crawler.login() == (False, ConnectionError)
+
+
+# --------------------------------------------------------------------------
 # Saved state.
 # --------------------------------------------------------------------------
 
 
 def test_last_check_is_read_with_eight_hour_overlap(lp, tmp_path):
+    """The saved time is read back with an eight hour overlap for missed packages."""
     state = tmp_path / "state"
     state.mkdir()
     (state / "last_check.txt").write_text("100000")
@@ -165,6 +190,7 @@ def test_last_check_is_read_with_eight_hour_overlap(lp, tmp_path):
 
 
 def test_write_last_check_date_saves_the_new_time(lp, tmp_path):
+    """The new last-check time is written to the state file."""
     crawler, _ = make_crawler(lp, tmp_path, [])
     crawler._time_of_last_check = 1234567890.0
 

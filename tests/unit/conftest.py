@@ -33,7 +33,7 @@ def lp(monkeypatch):
     _stub(monkeypatch, "httplib2", HttpLib2Error=type("HttpLib2Error", (Exception,), {}))
     _stub(monkeypatch, "launchpadlib")
     _stub(monkeypatch, "launchpadlib.credentials", Credentials=Mock)
-    _stub(monkeypatch, "launchpadlib.launchpad", Launchpad=Mock)
+    _stub(monkeypatch, "launchpadlib.launchpad", Launchpad=Mock())
     _stub(
         monkeypatch, "lazr.restfulclient.errors", ServerError=type("ServerError", (Exception,), {})
     )
