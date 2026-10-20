@@ -36,10 +36,11 @@ class MetaRelease:
         "meta-release-unit-testing",
         "raspi",
     ]
-    CONNECT_TIMEOUT_SECONDS = 10
+    CONNECT_TIMEOUT_SECONDS = 30
 
-    def __init__(self, destination: Path):
+    def __init__(self, destination: Path, connect_timeout: int = CONNECT_TIMEOUT_SECONDS):
         self.destination = destination
+        self.connect_timeout = connect_timeout
 
     def install(self) -> None:
         """Install the tools required to retrieve meta-release data."""
@@ -100,10 +101,11 @@ class MetaRelease:
             subprocess.run(
                 ["git", "ls-remote", "--exit-code", self.REPOSITORY, "HEAD"],
                 check=True,
-                timeout=self.CONNECT_TIMEOUT_SECONDS,
+                timeout=self.connect_timeout,
                 capture_output=True,
             )
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-            logger.error(__name__ + f": cannot reach {self.REPOSITORY}: {e}")
-            raise PullUpdatesError(f"cannot reach {self.REPOSITORY}: {e}") from None
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            raise PullUpdatesError(
+                f"cannot reach {self.REPOSITORY} after {self.connect_timeout}s"
+            ) from None
         logger.info(__name__ + f": {self.REPOSITORY} is reachable")

@@ -25,6 +25,7 @@ class CharmConfig(pydantic.BaseModel):
     """Charm configuration options."""
 
     meta_release_ref: str
+    meta_release_connect_timeout: int
 
 
 class UbuntuChangelogsOperatorCharm(ops.CharmBase):
@@ -34,7 +35,10 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         super().__init__(framework)
 
         self.nginx = Nginx()
-        self.meta_release = MetaRelease(self.nginx.SERVING_DIR)
+        config = self.load_config(CharmConfig, errors="blocked")
+        self.meta_release = MetaRelease(
+            self.nginx.SERVING_DIR, connect_timeout=config.meta_release_connect_timeout
+        )
         self.changelogs = Changelogs(self.nginx.SERVING_DIR)
 
         self.ingress = IngressPerAppRequirer(
@@ -145,9 +149,9 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
 
     def _on_pull_meta_release(self, event: ops.ActionEvent) -> None:
         """Handle the pull-meta-release action."""
-        ref = self.load_config(CharmConfig).meta_release_ref
+        config = self.load_config(CharmConfig)
         try:
-            self.meta_release.pull_updates(ref)
+            self.meta_release.pull_updates(config.meta_release_ref)
         except Exception as e:
             logger.exception(__name__ + ": pull-meta-release action failed")
             event.fail(f"failed to pull meta-release: {e}")

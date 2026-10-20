@@ -121,6 +121,13 @@ causes are a bad `meta_release_ref` or no network access to Launchpad.
 
 The unit status changes at the next Juju status check, usually after 5 minutes.
 
+If the network is slow, the connectivity check can time out. The default timeout
+is 30 seconds. Increase it and apply the configuration again:
+
+```shell
+juju config ubuntu-changelogs meta_release_connect_timeout=60
+```
+
 ## No web pages
 
 Run these commands on the unit:
@@ -174,6 +181,9 @@ If the action fails, read the error in the action output. Common causes:
   `https://git.launchpad.net/meta-release`.
 - **No network access.** Test it with:
   `juju ssh ubuntu-changelogs/0 -- git ls-remote https://git.launchpad.net/meta-release`.
+- **Connectivity check timeout.** The check takes longer than
+  `meta_release_connect_timeout` seconds (default 30). Increase it with
+  `juju config ubuntu-changelogs meta_release_connect_timeout=<seconds>`.
 - **A missing file in the repository.** The charm expects these files:
   `EOLReleaseAnnouncement`, `meta-release`, `meta-release-development`,
   `meta-release-lts`, `meta-release-lts-development`,

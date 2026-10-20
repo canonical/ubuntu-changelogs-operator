@@ -94,6 +94,7 @@ connect to port 80 of the unit.
 | --- | --- | --- |
 | `hostname` | `changelogs.ubuntu.com` | Host name to give to the ingress. |
 | `meta_release_ref` | `main` | Git branch, tag, or commit to publish from the `meta-release` repository. |
+| `meta_release_connect_timeout` | `30` | Timeout in seconds for the connectivity check before the charm clones `meta-release`. |
 
 A change to `meta_release_ref` clones the repository again.
 

@@ -48,6 +48,16 @@ config:
       description: |
         The git ref from which to pull the meta-release information.
 
+        Make sure to choose a stable ref to avoid cloning different repo
+        states after each configuration change. Using an immutable ref
+        such as a tag or a specific commit hash is best.
+    meta_release_connect_timeout:
+      type: int
+      default: 30
+      description: |
+        Timeout in seconds for the connectivity check before the charm
+        clones the meta-release repository.
+
 actions:
   pull-changelogs:
     description: Trigger the changelog extractor if it's not already running.

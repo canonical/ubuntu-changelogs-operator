@@ -95,17 +95,36 @@ def test_pull_meta_release_action_pulls_configured_ref(monkeypatch: pytest.Monke
     """Test that the pull-meta-release action pulls the configured ref."""
     calls = []
     monkeypatch.setattr(
-        "meta_release.MetaRelease.pull_updates", lambda self, ref: calls.append(ref)
+        "meta_release.MetaRelease.pull_updates",
+        lambda self, ref: calls.append((ref, self.connect_timeout)),
     )
 
     ctx = testing.Context(UbuntuChangelogsOperatorCharm)
     ctx.run(
         ctx.on.action("pull-meta-release"),
-        testing.State(config={"meta_release_ref": "HEAD"}),
+        testing.State(config={"meta_release_ref": "HEAD", "meta_release_connect_timeout": 12}),
     )
 
-    assert calls == ["HEAD"]
+    assert calls == [("HEAD", 12)]
     assert ctx.action_results == {"result": "meta-release updated"}
+
+
+def test_config_changed_uses_configured_meta_release_timeout(monkeypatch: pytest.MonkeyPatch):
+    """Test that config-changed pulls with the configured timeout."""
+    calls = []
+    monkeypatch.setattr("nginx.Nginx.setup", lambda self: None)
+    monkeypatch.setattr(
+        "meta_release.MetaRelease.pull_updates",
+        lambda self, ref: calls.append((ref, self.connect_timeout)),
+    )
+
+    ctx = testing.Context(UbuntuChangelogsOperatorCharm)
+    ctx.run(
+        ctx.on.config_changed(),
+        testing.State(config={"meta_release_ref": "HEAD", "meta_release_connect_timeout": 12}),
+    )
+
+    assert calls == [("HEAD", 12)]
 
 
 def test_pull_meta_release_action_fails_on_error(monkeypatch: pytest.MonkeyPatch):
