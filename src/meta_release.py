@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 class PullUpdatesError(Exception):
     """An exception class indicating the pull operation failed."""
 
-    def __init__(self):
-        super().__init__("failed to pull updates")
+    def __init__(self, reason: str = "failed to pull updates"):
+        super().__init__(reason)
 
 
 class MetaRelease:
@@ -36,6 +36,7 @@ class MetaRelease:
         "meta-release-unit-testing",
         "raspi",
     ]
+    CONNECT_TIMEOUT_SECONDS = 10
 
     def __init__(self, destination: Path):
         self.destination = destination
@@ -47,6 +48,7 @@ class MetaRelease:
 
     def pull_updates(self, ref: str) -> None:
         """Publish a fresh copy of the meta-release repository."""
+        self._check_connectivity()
         logger.info(
             "meta-release: cloning %s (ref: %s) into %s", self.REPOSITORY, ref, self.destination
         )
@@ -91,3 +93,17 @@ class MetaRelease:
     def uninstall(self) -> None:
         """Uninstall the tools used to retrieve meta-release data."""
         apt.remove_package("git")
+
+    def _check_connectivity(self) -> None:
+        """Check for connectivity towards the meta-release repository."""
+        try:
+            subprocess.run(
+                ["git", "ls-remote", "--exit-code", self.REPOSITORY, "HEAD"],
+                check=True,
+                timeout=self.CONNECT_TIMEOUT_SECONDS,
+                capture_output=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            logger.error(__name__ + f": cannot reach {self.REPOSITORY}: {e}")
+            raise PullUpdatesError(f"cannot reach {self.REPOSITORY}: {e}") from None
+        logger.info(__name__ + f": {self.REPOSITORY} is reachable")
