@@ -233,9 +233,9 @@ def test_source_collection_page_failure_stops_the_crawl(lp, tmp_path):
     pool.mkdir(parents=True)
     (pool / "changelog").write_text("already extracted")
 
-    with pytest.raises(TimeoutError, match="next page timed out"):
-        crawler.get_changelogs()
+    success = crawler.get_changelogs()
 
+    assert not success
     assert crawler.skipped == 1
     assert last_check.read_text() == "100000"
 

@@ -9,6 +9,7 @@ import os
 import shutil
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -60,6 +61,7 @@ LP_NETWORK_ERRORS = (
     ConnectionError,
     httplib2.HttpLib2Error,
     ServerError,
+    ssl.SSLError,
 )
 
 
@@ -221,11 +223,16 @@ class LaunchpadChangelogsCrawler:
         self._launchpad = Launchpad(credentials, service, self.lp_cachedir)
 
     def get_changelogs(self):
-        ubuntu = self._launchpad.distributions[DISTRIBUTION]
-        archive = ubuntu.main_archive
-        date = datetime.datetime.fromtimestamp(self._time_of_last_check)
-        logging.info(f"last checked: {date}")
-        self.get_changelogs_since(archive, date.isoformat())
+        try:
+            ubuntu = self._launchpad.distributions[DISTRIBUTION]
+            archive = ubuntu.main_archive
+            date = datetime.datetime.fromtimestamp(self._time_of_last_check)
+            logging.info(f"last checked: {date}")
+            self.get_changelogs_since(archive, date.isoformat())
+        except LP_NETWORK_ERRORS:
+            logging.exception("launchpad request failed, crawling stopped")
+            return False
+
         return self.failed == 0
 
     def get_changelogs_since(self, archive, date):
