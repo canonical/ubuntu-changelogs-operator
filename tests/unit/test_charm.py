@@ -49,20 +49,32 @@ def test_install_orchestrates_components(monkeypatch: pytest.MonkeyPatch):
     ("status", "expected"),
     [
         (ServiceStatus.OK, testing.ActiveStatus()),
-        (ServiceStatus.RUNNING, testing.MaintenanceStatus("extracting changelogs")),
-        (ServiceStatus.FAILED, testing.MaintenanceStatus("changelog extraction failed")),
+        (ServiceStatus.RUNNING, testing.ActiveStatus("extracting changelogs")),
+        (ServiceStatus.FAILED, testing.ActiveStatus("last changelog extraction failed")),
+        (ServiceStatus.UNKNOWN, testing.ActiveStatus("could not read the extractor status")),
     ],
 )
 def test_update_status_reflects_extraction_health(
     monkeypatch: pytest.MonkeyPatch, status: ServiceStatus, expected
 ):
     """Test that update-status maps extraction health to the unit status."""
+    monkeypatch.setattr("nginx.Nginx.is_running", lambda self: True)
     monkeypatch.setattr("changelogs.Changelogs.extractor_status", lambda self: status)
 
     ctx = testing.Context(UbuntuChangelogsOperatorCharm)
     state_out = ctx.run(ctx.on.update_status(), testing.State())
 
     assert state_out.unit_status == expected
+
+
+def test_update_status_blocks_when_nginx_is_down(monkeypatch: pytest.MonkeyPatch):
+    """Test that update-status reports blocked when nginx is not running."""
+    monkeypatch.setattr("nginx.Nginx.is_running", lambda self: False)
+
+    ctx = testing.Context(UbuntuChangelogsOperatorCharm)
+    state_out = ctx.run(ctx.on.update_status(), testing.State())
+
+    assert state_out.unit_status == testing.BlockedStatus("nginx is not running")
 
 
 def test_pull_changelogs_action_triggers_extraction(monkeypatch: pytest.MonkeyPatch):
@@ -73,7 +85,7 @@ def test_pull_changelogs_action_triggers_extraction(monkeypatch: pytest.MonkeyPa
     state_out = ctx.run(ctx.on.action("pull-changelogs"), testing.State())
 
     assert ctx.action_results == {"result": "changelog extraction triggered"}
-    assert state_out.unit_status == testing.MaintenanceStatus("extracting changelogs")
+    assert state_out.unit_status == testing.ActiveStatus("extracting changelogs")
 
 
 def test_pull_changelogs_action_fails_on_error(monkeypatch: pytest.MonkeyPatch):

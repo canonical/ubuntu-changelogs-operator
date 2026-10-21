@@ -108,14 +108,22 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         self.unit.status = ops.ActiveStatus("ready")
 
     def _on_update_status(self, event: ops.UpdateStatusEvent) -> None:
-        """Report the health of the changelog extraction process."""
+        """Report the availability of the service and the extraction process."""
+        if not self.nginx.is_running():
+            logger.error(__name__ + ": nginx is not running")
+            self.unit.status = ops.BlockedStatus("nginx is not running")
+            return
+
         status = self.changelogs.extractor_status()
         if status is ServiceStatus.RUNNING:
             logger.info(__name__ + ": changelog extraction still in progress")
-            self.unit.status = ops.MaintenanceStatus("extracting changelogs")
+            self.unit.status = ops.ActiveStatus("extracting changelogs")
         elif status is ServiceStatus.FAILED:
             logger.error(__name__ + ": last changelog extraction failed")
-            self.unit.status = ops.MaintenanceStatus("changelog extraction failed")
+            self.unit.status = ops.ActiveStatus("last changelog extraction failed")
+        elif status is ServiceStatus.UNKNOWN:
+            logger.warning(__name__ + ": could not read the extractor status")
+            self.unit.status = ops.ActiveStatus("could not read the extractor status")
         else:
             self.unit.status = ops.ActiveStatus()
 
@@ -143,9 +151,9 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             event.fail(f"failed to trigger changelog extraction: {e}")
             return
         event.set_results({"result": "changelog extraction triggered"})
-        # We set the unit on a maintenance status, which will be cleaned
-        # up by the on-update-status hook.
-        self.unit.status = ops.MaintenanceStatus("extracting changelogs")
+        # We set the unit status, which will be kept up to date by the
+        # on-update-status hook.
+        self.unit.status = ops.ActiveStatus("extracting changelogs")
 
     def _on_pull_meta_release(self, event: ops.ActionEvent) -> None:
         """Handle the pull-meta-release action."""

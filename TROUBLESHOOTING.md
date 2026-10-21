@@ -20,10 +20,11 @@ juju debug-log --include ubuntu-changelogs --replay --tail 100
 | Unit state | Meaning | Next step |
 | --- | --- | --- |
 | `active` | nginx started. | See [No web pages](#no-web-pages). |
-| `maintenance: extracting changelogs` | The extractor runs. This is normal. | Wait. The first run can take hours. |
-| `maintenance: changelog extraction failed` | The last extractor run failed. | See [Changelogs are missing or old](#changelogs-are-missing-or-old). |
+| `active: extracting changelogs` | The extractor runs. This is normal. | Wait. The first run can take hours. |
+| `active: last changelog extraction failed` | The last extractor run failed. nginx still serves the available data. | See [Changelogs are missing or old](#changelogs-are-missing-or-old). |
 | `maintenance: failed rolling out configuration` | A config change did not complete. | See [The configuration does not complete](#the-configuration-does-not-complete). |
-| `blocked` | An install or config step failed. | See [The unit is blocked or in error state](#the-unit-is-blocked-or-in-error-state). |
+| `blocked: nginx is not running` | nginx stopped. | See [No web pages](#no-web-pages). |
+| `blocked` | An install step failed. | See [The unit is blocked or in error state](#the-unit-is-blocked-or-in-error-state). |
 | `error` | A Juju step failed with an error. | See [The unit is blocked or in error state](#the-unit-is-blocked-or-in-error-state). |
 
 ## Logs
@@ -221,7 +222,7 @@ juju ssh ubuntu-changelogs/0 -- ls -l /var/www/changelogs.ubuntu.com
    ```
 
 The action returns before the extraction ends. `juju status` shows
-`maintenance: extracting changelogs` while it runs.
+`active: extracting changelogs` while it runs.
 
 | Log message | Cause | Action |
 | --- | --- | --- |

@@ -25,7 +25,7 @@ on port 80.
   source packages from Launchpad and writes `changelog`, `NEWS.Debian`, and
   `copyright` files under `/changelogs/`.
 - When Juju checks the unit status (usually every 5 minutes), the charm reports
-  if the extractor is running or if the last run failed.
+  if nginx is running and if the extractor is running or if the last run failed.
 
 The application needs:
 
@@ -70,9 +70,10 @@ the charm. To build without these checks, run `charmcraft pack`. The examples
 use the amd64 file. On arm64, use `ubuntu-changelogs_arm64.charm`.
 
 The first changelog extraction can take hours. During this time, the unit
-status is `maintenance: extracting changelogs`. A unit with `active` status has
-started nginx, but its data can be incomplete. See
-[TROUBLESHOOTING.md](TROUBLESHOOTING.md) to check the data.
+status is `active: extracting changelogs`, and nginx serves the data that is
+already available. A unit with `active` status has started nginx, but its data
+can be incomplete. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) to check the
+data.
 
 ### Optional ingress
 

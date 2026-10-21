@@ -51,6 +51,7 @@ def test_install_copies_script_and_installs_packages(monkeypatch):
 def test_extractor_status_running_returns_running(monkeypatch):
     run = Mock(
         return_value=Mock(
+            returncode=0,
             stdout="ActiveState=activating\nResult=success\nExecMainStatus=0\n",
         )
     )
@@ -74,6 +75,7 @@ def test_extractor_status_running_returns_running(monkeypatch):
 def test_extractor_status_failed_active_state_returns_failed(monkeypatch):
     run = Mock(
         return_value=Mock(
+            returncode=0,
             stdout="ActiveState=failed\nResult=exit-code\nExecMainStatus=1\n",
         )
     )
@@ -87,6 +89,7 @@ def test_extractor_status_failed_active_state_returns_failed(monkeypatch):
 def test_extractor_status_non_success_result_returns_failed(monkeypatch):
     run = Mock(
         return_value=Mock(
+            returncode=0,
             stdout="ActiveState=inactive\nResult=timeout\nExecMainStatus=0\n",
         )
     )
@@ -100,6 +103,7 @@ def test_extractor_status_non_success_result_returns_failed(monkeypatch):
 def test_extractor_status_success_returns_ok(monkeypatch):
     run = Mock(
         return_value=Mock(
+            returncode=0,
             stdout="ActiveState=inactive\nResult=success\nExecMainStatus=0\n",
         )
     )
@@ -114,6 +118,7 @@ def test_extractor_status_never_run_returns_ok(monkeypatch):
     # A unit that has never run reports success with no meaningful exit status.
     run = Mock(
         return_value=Mock(
+            returncode=0,
             stdout="ActiveState=inactive\nResult=success\nExecMainStatus=\n",
         )
     )
@@ -122,6 +127,15 @@ def test_extractor_status_never_run_returns_ok(monkeypatch):
     changelogs = Changelogs(Mock())
 
     assert changelogs.extractor_status() is ServiceStatus.OK
+
+
+def test_extractor_status_failed_query_returns_unknown(monkeypatch):
+    run = Mock(return_value=Mock(returncode=1, stdout="", stderr="boom"))
+    monkeypatch.setattr("changelogs.subprocess.run", run)
+
+    changelogs = Changelogs(Mock())
+
+    assert changelogs.extractor_status() is ServiceStatus.UNKNOWN
 
 
 def test_run_extractor_starts_service(monkeypatch):

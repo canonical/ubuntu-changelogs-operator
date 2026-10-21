@@ -122,4 +122,4 @@ def test_pull_changelogs_action(juju: jubilant.Juju):
     result = juju.run(UNIT, "pull-changelogs")
     assert result.results["result"] == "changelog extraction triggered"
     unit = juju.status().apps[APP].units[UNIT]
-    assert unit.workload_status.current == "maintenance"
+    assert unit.workload_status.current == "active"

@@ -22,6 +22,7 @@ class ServiceStatus(Enum):
     OK = "ok"
     RUNNING = "running"
     FAILED = "failed"
+    UNKNOWN = "unknown"
 
 
 class Changelogs:
@@ -84,7 +85,8 @@ class Changelogs:
         Query the systemd service unit properties. While the process is running,
         the state is ``activating`` or ``active``. When it stops, the state returns
         to ``inactive``, and we can check the result for success or failure. If
-        the service has never run, is treated as successful.
+        the service has never run, is treated as successful. If the query itself
+        fails, the status is ``unknown``.
         """
         result = subprocess.run(
             [
@@ -96,6 +98,9 @@ class Changelogs:
             capture_output=True,
             text=True,
         )
+        if result.returncode != 0:
+            logger.error(__name__ + ": failed to query the extractor status")
+            return ServiceStatus.UNKNOWN
 
         # Parse the result from stdin
         properties: dict[str, str] = {}
