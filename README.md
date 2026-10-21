@@ -142,6 +142,14 @@ locations.
 The integration tests need a prepared Multipass VM. See [TESTING.md](TESTING.md)
 for the setup and teardown commands.
 
+### Refreshing the `CHARMCRAFT_TOKEN`
+
+The `CHARMCRAFT_TOKEN` is what allows the CI to push the charm to charmhub. If it expires, you can refresh it with the following:
+```
+charmcraft login --export=secrets.auth --charm=ubuntu-changelogs  --permission=package-manage --permission=package-view --ttl=$((3600*24*365))
+cat secrets.auth
+```
+
 ## Links
 
 - Source: https://github.com/ubuntu/ubuntu-changelogs-operator

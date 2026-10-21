@@ -14,8 +14,8 @@ jobs:
     uses: ./.github/workflows/linter.yml
   test:
     uses: ./.github/workflows/test.yml
-  # build-charm:
-  #   needs: [linter, test]
-  #   uses: ./.github/workflows/build-charm.yml
-  #   secrets:
-  #     CHARMCRAFT_TOKEN: ${{ secrets.CHARMCRAFT_TOKEN }}
+  build-charm:
+    needs: [linter, test]
+    uses: ./.github/workflows/build-charm.yml
+    secrets:
+      CHARMCRAFT_TOKEN: ${{ secrets.CHARMCRAFT_TOKEN }}
