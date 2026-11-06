@@ -98,6 +98,7 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         try:
             self.nginx.setup()
             self.meta_release.pull_updates(config.meta_release_ref)
+            self._set_ingress_hostname_from_config()
         except Exception as e:
             logger.error(__name__ + f": error while rolling out configuration: {e}")
             self.unit.status = ops.MaintenanceStatus("failed rolling out configuration")
@@ -166,15 +167,19 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             return
         event.set_results({"result": "meta-release updated"})
 
-    def _on_ingress_ready(self, event: IngressPerAppReadyEvent):
-        """Handle the ingress connection."""
-        logger.info(__name__ + ": ingress is ready. URL: %s", event.url)
+    def _set_ingress_hostname_from_config(self):
+        """Read the hostname from the charm config and provide it to the ingress."""
         hostname: str | None = self.config.get("hostname")  # type: ignore[assignment]
         self.ingress.provide_ingress_requirements(
             host=hostname,
             port=self.nginx.PORT,
         )
         logger.info(__name__ + ": ingress successfully configured")
+
+    def _on_ingress_ready(self, event: IngressPerAppReadyEvent):
+        """Handle the ingress connection."""
+        logger.info(__name__ + ": ingress is ready. URL: %s", event.url)
+        self._set_ingress_hostname_from_config()
 
 
 if __name__ == "__main__":  # pragma: nocover
