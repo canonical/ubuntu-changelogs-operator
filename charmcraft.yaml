@@ -14,7 +14,6 @@ links:
 base: ubuntu@26.04
 platforms:
   amd64:
-  arm64:
 
 assumes:
   - juju >= 3.6
