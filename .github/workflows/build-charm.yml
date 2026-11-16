@@ -8,6 +8,7 @@ on:
 
 env:
   CHARM_NAME: ubuntu-changelogs
+  CHARM_ARTIFACT: "${{ env.CHARM_NAME }}_amd64.charm"
 
 jobs:
   pack-charm:
@@ -31,7 +32,7 @@ jobs:
       - name: Upload charm artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ${{ env.CHARM_NAME }}.charm
+          name: ${{ env.CHARM_ARTIFACT }}
           path: "*.charm"
 
   upload-charm:
@@ -60,4 +61,4 @@ jobs:
           credentials: '${{ secrets.CHARMCRAFT_TOKEN }}'
           github-token: '${{ secrets.GITHUB_TOKEN }}'
           tag-prefix: ${{ env.CHARM_NAME }}
-          built-charm-path: ${{ env.CHARM_NAME }}_amd64.charm
+          built-charm-path: ${{ env.CHARM_ARTIFACT }}
