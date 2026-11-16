@@ -8,7 +8,7 @@ on:
 
 env:
   CHARM_NAME: ubuntu-changelogs
-  CHARM_ARTIFACT: "${{ env.CHARM_NAME }}_amd64.charm"
+  CHARM_ARTIFACT: ubuntu-changelogs_amd64.charm
 
 jobs:
   pack-charm:
