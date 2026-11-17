@@ -29,17 +29,16 @@ class Nginx:
         apt.update()
         apt.add_package("nginx-core")
 
-        # Apply configuration and create serving directory
+        logger.info(__name__ + ": installed")
+
+    def setup(self) -> None:
+        """Copy config, create working dirs, copy static files into the serving directory."""
         self.DEFAULT_CONFIG.unlink(missing_ok=True)
         shutil.copy2(self.NGINX_CONFIG, self.CUSTOM_CONFIG)
         self.SERVING_DIR.mkdir(parents=True, exist_ok=True)
 
-        logger.info(__name__ + ": installed and configured")
-
-    def setup(self) -> None:
-        """Copy static files into the serving directory."""
         shutil.copy2(self.ROBOTS_TXT, self.SERVING_DIR / "robots.txt")
-        logger.info(__name__ + ": static files copied to serving directory")
+        logger.info(__name__ + ": configuration set up correctly")
 
     def is_running(self) -> bool:
         """Return whether nginx is running."""
