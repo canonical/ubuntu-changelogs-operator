@@ -38,6 +38,8 @@ class Nginx:
         self.SERVING_DIR.mkdir(parents=True, exist_ok=True)
 
         shutil.copy2(self.ROBOTS_TXT, self.SERVING_DIR / "robots.txt")
+
+        self.start()
         logger.info(__name__ + ": configuration set up correctly")
 
     def is_running(self) -> bool:
