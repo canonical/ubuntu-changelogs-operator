@@ -10,7 +10,6 @@ import time
 import ops
 import pydantic
 from charms.traefik_k8s.v2.ingress import (
-    IngressPerAppReadyEvent,
     IngressPerAppRequirer,
 )
 
@@ -56,7 +55,6 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         framework.observe(self.on.remove, self._on_remove)
         framework.observe(self.on.pull_changelogs_action, self._on_pull_changelogs)
         framework.observe(self.on.pull_meta_release_action, self._on_pull_meta_release)
-        framework.observe(self.ingress.on.ready, self._on_ingress_ready)
 
     def _on_install(self, event: ops.InstallEvent):
         """Install the workload on the machine."""
@@ -98,7 +96,6 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
         try:
             self.nginx.setup()
             self.meta_release.pull_updates(config.meta_release_ref)
-            self._set_ingress_hostname_from_config()
         except Exception as e:
             logger.error(__name__ + f": error while rolling out configuration: {e}")
             self.unit.status = ops.MaintenanceStatus("failed rolling out configuration")
@@ -166,20 +163,6 @@ class UbuntuChangelogsOperatorCharm(ops.CharmBase):
             event.fail(f"failed to pull meta-release: {e}")
             return
         event.set_results({"result": "meta-release updated"})
-
-    def _set_ingress_hostname_from_config(self):
-        """Read the hostname from the charm config and provide it to the ingress."""
-        hostname: str | None = self.config.get("hostname")  # type: ignore[assignment]
-        self.ingress.provide_ingress_requirements(
-            host=hostname,
-            port=self.nginx.PORT,
-        )
-        logger.info(__name__ + ": ingress successfully configured")
-
-    def _on_ingress_ready(self, event: IngressPerAppReadyEvent):
-        """Handle the ingress connection."""
-        logger.info(__name__ + ": ingress is ready. URL: %s", event.url)
-        self._set_ingress_hostname_from_config()
 
 
 if __name__ == "__main__":  # pragma: nocover

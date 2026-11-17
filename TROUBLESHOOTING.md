@@ -157,13 +157,12 @@ the unit.
 
 ```shell
 juju status --relations
-juju config ubuntu-changelogs hostname
 ```
 
 | Result | Action |
 | --- | --- |
 | No ingress relation | Connect an ingress application: `juju integrate ubuntu-changelogs:ingress <ingress-application>`. |
-| Wrong host name | Remove the ingress relation. Set the name with `juju config ubuntu-changelogs hostname=<host-name>`. Connect the ingress again. |
+| Wrong host name | The ingress provider sets the host name. Check the configuration of the ingress provider. |
 | Ingress not ready | Read the ingress logs. When the relation is ready, the charm logs `ingress is ready. URL: ...`. |
 
 ## Meta-release files are missing or old

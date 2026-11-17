@@ -85,15 +85,13 @@ interface:
 juju integrate ubuntu-changelogs:ingress <ingress-application>
 ```
 
-Set `hostname` before you connect the ingress. The charm sends the host name to
-the ingress when the relation becomes ready. Without an ingress, clients must
-connect to port 80 of the unit.
+The ingress application sets the public host name. Without an ingress, clients
+must connect to port 80 of the unit.
 
 ## Configuration
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `hostname` | `changelogs.ubuntu.com` | Host name to give to the ingress. |
 | `meta_release_ref` | `main` | Git branch, tag, or commit to publish from the `meta-release` repository. |
 | `meta_release_connect_timeout` | `30` | Timeout in seconds for the connectivity check before the charm clones `meta-release`. |
 
