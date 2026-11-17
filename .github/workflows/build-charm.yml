@@ -60,5 +60,6 @@ jobs:
         with:
           credentials: '${{ secrets.CHARMCRAFT_TOKEN }}'
           github-token: '${{ secrets.GITHUB_TOKEN }}'
+          github-tag: false
           tag-prefix: ${{ env.CHARM_NAME }}
           built-charm-path: ${{ env.CHARM_ARTIFACT }}
